@@ -109,7 +109,21 @@ Use shared folders only when the file really is shared. Do not put feature-speci
 
 ## Current Project Status
 
-BoatBoard currently has no application source beyond `project/.keep`. Keep the product source in `project/`. Once implementation begins, organize the browser interface, organization-data model, and any future private-data integration as separate concerns. Do not add a data integration, framework structure, or hosting-specific layout until those choices are approved.
+BoatBoard is implemented as a small dependency-free browser prototype in `project/`:
+
+```text
+project/
+  index.html
+  styles.css
+  app.js
+  layout/
+    profile-arrangements.js
+  data/
+    board-config.js
+    example-organization.js
+```
+
+`index.html` owns the page shell, `styles.css` owns the visual system, `app.js` owns Canvas rendering and camera interaction, `layout/profile-arrangements.js` owns reusable profile geometry, `board-config.js` owns replaceable presentation configuration, and `example-organization.js` contains fictional stress-test data. Preserve this separation. When private local data is introduced, keep it ignored and route it through a replaceable read-only data-source boundary. A future company-approved API, database, or directory integration must replace only that boundary, not the visual map. Do not add a framework, hosting-specific structure, or production integration until approved.
 
 If a system becomes complex, create a focused doc under `docs/` only when it fits the project. Examples might include `DEPLOYMENT_MODEL.md`, `DATA_MODEL.md`, `RELEASE_MODEL.md`, `PLUGIN_MODEL.md`, `GAME_MECHANICS.md`, or another project-specific name. Do not create theoretical docs just because the template lists examples.
 

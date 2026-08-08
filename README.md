@@ -1,6 +1,6 @@
 # BoatBoard
 
-BoatBoard is a local-first visual company directory prototype for Eduzz. It presents teams as gently animated bubbles and colleagues as profile circles within them. The future goal is a privately hosted, secure internal site; real company data is not part of this repository.
+BoatBoard is a local-first visual company directory prototype for Eduzz. It presents teams as bubbles and colleagues as profile circles within them. The first view calculates its layout on load and then remains still. The future goal is a privately hosted, secure internal site; real company data is not part of this repository.
 
 ## Layout
 
@@ -20,9 +20,15 @@ BoatBoard/
 
 ## Current Status
 
-The project frame and Git identity guard are configured. The application has not begun yet: no UI, data, dependencies, framework, build system, or hosting service has been chosen or added.
+The local visual prototype is implemented with dependency-free HTML, CSS, JavaScript modules, and Canvas. Its arrangement test contains 99 fictional teams with 1 through 99 colleagues respectively. The stable square map initially fits the viewport, supports smooth cursor-centered zoom and unrestricted drag-to-pan, and includes static leadership links. There are no profile information interactions or real company records.
 
-The agreed first product slice is a local browser page with an initially empty visual canvas and a corner label, `BoatBoard - Eduzz`. Implementation begins only after the owner requests it.
+Run it from the repository root:
+
+```powershell
+python -m http.server 4173 --directory project
+```
+
+Then open `http://127.0.0.1:4173/` without a trailing backslash. The exact private local data authoring format remains intentionally undecided.
 
 ## AI Workflow
 

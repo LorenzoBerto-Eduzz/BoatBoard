@@ -1,54 +1,74 @@
 # AI Handoff
 
-This is the portable continuity note for AI coding sessions working on this repository. Keep it a concise current snapshot, not a diary or changelog.
+This is the portable continuity snapshot for AI sessions working on BoatBoard. The repository, not prior chat memory, is authoritative.
 
 ## Current State
 
-- Project name: `BoatBoard`.
-- Project kind: `local-first visual company directory prototype`.
-- Main project folder: `project/`.
-- Primary language/stack: `not chosen; no application exists yet`.
-- Run command: `unknown`.
-- Test command: `unknown`.
-- Delivery status/command: `none established; no deployment or package authorized`.
-- Remote: `none configured`.
-- The repository is an AI-ready project frame: source in the main project folder, durable project memory in `docs/`, owner scratch notes in `notes/`, Git-safe raw/reference assets in `asset_staging/`, and local-only material in ignored folders.
-- `AGENTS.md` is the AI boot file. `docs/AI_MEMORY_PROTOCOL.md` defines memory recovery. `docs/WORKFLOW_AND_STYLE.md` defines collaboration and coding expectations.
-- `docs/PROJECT_BRIEF.md` holds the real project identity and constraints. `docs/PROJECT_ORGANIZATION.md` records structure direction. `docs/DELIVERY_PROCESS.md` remains neutral until a real delivery process is agreed.
-- `.git-identity` and `.githooks/` can enforce one allowed contributor email after setup. The template ships `.git-identity.example`, not a project identity.
+- Project: `BoatBoard`, a local-first visual company-directory prototype for Eduzz.
+- Source: `project/`.
+- Stack: dependency-free HTML, CSS, JavaScript modules, and Canvas.
+- Run from the repo root with `python -m http.server 4173 --directory project`.
+- Open `http://127.0.0.1:4173/`; direct `file://` opening does not load the JavaScript modules correctly.
+- No package, dependency, build, deployment, or release process exists.
+- No Git remote is currently configured.
+- The current arrangement stress test has 99 fictional teams with respective membership counts 1 through 99: 4,950 fictional colleague placeholders and one fictional leadership link per team.
+- No real company data, profile images, credentials, or private exports belong in Git.
 
-## User Intent
+## Implemented Product
 
-The user wants a project that can continue across machines, AI chats, models, and tools without losing important context. The repository is the source of truth after a `git pull`.
+- `project/index.html` provides the page shell, Canvas, title, and cache-versioned assets.
+- `project/styles.css` provides the dark graphite/ocean visual system and fixed overlay title.
+- `project/app.js` provides Canvas rendering, the stable square logical scene, team grid placement, leadership links, overview bitmap caching, vector detail rendering, and the camera.
+- `project/layout/profile-arrangements.js` provides deterministic arrangements and bubble sizing for profile counts 1–99.
+- `project/data/board-config.js` holds replaceable presentation configuration, currently the `Eduzz` company name.
+- `project/data/example-organization.js` generates fictional stress-test data and provisional avatar colors.
 
-The owner is preparing a local browser prototype of BoatBoard for Eduzz. The long-term goal is a private, secure, company-internal directory; no hosting implementation is in scope now. BoatBoard visualizes teams as dynamic bubbles and colleagues as circular profile images within their one assigned team.
+The complete logical square fits the viewport by default. Mouse-wheel and trackpad gestures zoom smoothly around the cursor from 1x to 30x. Dragging pans 1:1 with the pointer, without bounds and at every zoom level—including the default fitted view. Double-click resets the camera. The scene itself has no ambient motion.
 
-The visual style is a dark charcoal-gray field with a quiet deep blue-gray/ocean tint. Team bubbles are translucent and subtly shiny with a pale inner contour. Colleague circles should arrange and move softly like a molecule, dynamically responding to team size. The page title will read `BoatBoard - Eduzz` in a corner.
+For performance, teams use cached low-resolution Canvas bitmaps at overview scale and switch to vector Canvas drawing when enlarged. Keep this approach unless profiling supports a change; the 4,950-profile test previously became jagged when all elements were independently transformed.
 
-Leadership is represented by exactly one subtle, stationary link per team. A leader remains in their own team bubble and connects by line to the different team bubble they lead. No interactions, popup, hover panel, search, editing, importing, fictional sample data, or real company data has been authorized yet.
+## Accepted Profile Geometry
 
-## Working Procedure For Future AI Sessions
+- Profile diameter: 60 logical pixels.
+- Nominal gap: 30 logical pixels; center spacing is 90.
+- Profiles form centered, mirror-balanced, concentric complete polygon rings with close neighbor spacing and an overall circular/atomic/mandala appearance.
+- Counts 1–10 have intentional compact arrangements.
+- Visual special cases: 11 uses 3+8, 12 uses 3+9, 13 uses 4+9; 25 uses 4+8+13, 26 uses 4+9+13, and 27 uses 4+9+14.
+- Counts 3–5 are expanded 10%; count 23 has a slightly tighter outer ring; count 24 has slightly tighter rings.
+- Bubble padding grows for small teams and caps at 88 logical pixels. Computed bubble radii are normalized so a larger team never receives a smaller bubble than the preceding count.
+- The owner has accepted the current 1–99 profile arrangements. Preserve them unless a future request targets them.
 
-1. Read root `AGENTS.md` first.
-2. Read this handoff, the memory protocol, workflow/style rules, and the project brief.
-3. Read focused task docs and inspect actual source files before editing.
-4. If placeholders remain or setup is changing, read `docs/TEMPLATE_SETUP.md` and `docs/NEW_PROJECT_CHECKLIST.md`.
-5. Before Git/copy/identity work, read `docs/COPYING_AND_GIT.md`.
-6. Before any package, export, release, publish, or deployment, read `docs/DELIVERY_PROCESS.md`.
-7. Check Git status and recent history when Git exists; never overwrite user work.
-8. If chat memory conflicts with repo files, trust repo files. If intent is still unclear, ask before editing.
+Placeholder initials are deliberately large. Their soft-vivid palette is provisional; the owner wants to reassess colors later after profile images exist and image/non-image profiles can be judged together.
 
-## Suggested Near-Term Next Steps
+## Visual And Data Rules
 
-- Wait for the owner to explicitly authorize first application development.
-- Agree the stack, local run command, and validation path before adding dependencies or source files.
-- Agree whether the first visual screen is empty or receives data only when the owner supplies an approved anonymized/real source.
-- Document a hosting and security approach only when private deployment is actually being planned.
+- Team bubbles use one restrained transparent blue-gray radial edge treatment, with a fixed 28px logical inward fade and generous breathing room around profiles. Do not add shine, extra rings, or drop shadows.
+- Profiles are the focal point. Do not show team names, counts, or colleague names on the map yet.
+- Leadership lines are stationary, dim, dark blue-gray 2px vectors without endpoint dots or leader halos.
+- A colleague belongs to one team. A team has one leader, who may belong to another team and stays visible only in their own bubble.
+- Data access must remain read-only and replaceable: private source → adapter → stable organization model → layout/rendering.
+- The private authoring format and future authoritative company system remain undecided.
 
-## Durable Decisions
+## Next Work
 
-- The repo, not chat memory, is the source of truth.
-- `memcheck` updates durable memory docs only.
-- `gitcheck` performs `memcheck`, validates the intended work, then commits and pushes only when explicitly requested.
-- Keep source, durable docs, owner notes, raw/reference staging, and local private material separate.
-- Add a project-specific delivery command only after its process is documented and the owner requests it.
+The owner will next explain and align the desired team-bubble arrangement and connection behavior. Do not pre-empt that design. Search, profile hover/click/details, editing, import, real data, hosting, authentication, and production integration remain future owner-directed work.
+
+## Validation
+
+```powershell
+node --check project/app.js
+node --check project/data/example-organization.js
+node --check project/data/board-config.js
+node --check project/layout/profile-arrangements.js
+git diff --check
+```
+
+Browser caching can conceal visual changes. Advance the query versions in `project/index.html` when CSS or imported JavaScript changes, then refresh the exact local URL.
+
+## Workflow
+
+- Read `AGENTS.md`, this file, the memory protocol, workflow rules, and project brief when catching up.
+- Inspect source and Git status before editing; preserve owner changes.
+- `memcheck` updates durable memory only.
+- `gitcheck` runs `memcheck`, reviews and validates changes, verifies identity protection, stages intended files, commits with an objective title plus bullet lines, and pushes when a remote exists.
+- Do not publish, package, deploy, or add a framework without owner approval.
