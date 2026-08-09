@@ -8,6 +8,8 @@
 
 body { margin: 0; min-width: 320px; overflow: hidden; }
 
+.editor-mode .board { width: 100vw; }
+
 .board {
   background:
     linear-gradient(145deg, rgba(28, 69, 94, .055), rgba(12, 34, 50, .04)),
@@ -21,8 +23,10 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
   touch-action: none;
 }
 
-.board { cursor: grab; }
+.board { cursor: default; }
 .board.is-panning { cursor: grabbing; }
+.editor-mode .board { cursor: crosshair; }
+.editor-mode .board.is-panning { cursor: grabbing; }
 
 .board::before {
   background-image: radial-gradient(rgba(222, 241, 252, .1) .65px, transparent .8px);
@@ -53,6 +57,74 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
 .brand small { align-self: flex-start; color: rgba(185, 204, 211, .66); font-family: "Aptos Display", "Segoe UI Light", "Segoe UI", sans-serif; font-size: 1.14rem; font-weight: 300; letter-spacing: .01em; line-height: 1; margin-top: .5rem; transform: translateX(2px); }
 
 .organization-canvas { display: block; inset: 0; position: absolute; z-index: 2; }
+
+.editor-panel {
+  background: linear-gradient(180deg, #111a20, #0a1116);
+  border: 1px solid rgba(151, 178, 190, .2);
+  border-radius: 14px;
+  bottom: 16px;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, .34);
+  display: flex;
+  flex-direction: column;
+  padding: .65rem;
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  width: min(260px, calc(100vw - 32px));
+  z-index: 20;
+}
+.editor-panel-heading { align-items: center; display: flex; flex: 0 0 auto; justify-content: space-between; min-height: 30px; padding-left: .55rem; }
+.editor-panel-heading strong { color: #e3eaec; display: block; font-size: 1rem; font-weight: 600; }
+.panel-actions { display: flex; gap: 5px; position: fixed; right: calc(16px + .65rem + 1px); top: calc(16px + .65rem + 1px); }
+.panel-actions button { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 7px; color: rgba(203, 219, 225, .72); cursor: pointer; display: flex; height: 30px; justify-content: center; padding: 0; position: relative; width: 30px; }
+.panel-actions button:hover { border-color: rgba(151, 178, 190, .3); }
+.data-open svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.65; width: 18px; }
+.panel-toggle:hover { border-color: rgba(151, 178, 190, .3); }
+.panel-toggle svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; width: 18px; }
+.panel-menu-icon { display: none; }
+.editor-panel.is-collapsed { background: transparent; border-color: transparent; bottom: auto; box-shadow: none; padding: .65rem; top: 16px; width: 87px; }
+.editor-panel.is-collapsed .editor-panel-heading { padding-left: 0; }
+.editor-panel.is-collapsed .editor-panel-heading strong, .editor-panel.is-collapsed .unplaced-list { display: none; }
+.editor-panel.is-collapsed .panel-arrow-icon { display: none; }
+.editor-panel.is-collapsed .panel-menu-icon { display: block; }
+.unplaced-list { align-content: start; display: grid; flex: 1; gap: .45rem; margin-top: .85rem; min-height: 0; overflow-y: auto; }
+.unplaced-list { scrollbar-width: none; }
+.unplaced-list::-webkit-scrollbar { display: none; }
+.unplaced-list.is-empty::after { color: rgba(185, 204, 211, .42); content: "No bubbles to list"; font-size: .78rem; padding: .25rem .55rem 0; }
+.tray-team { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: grab; display: flex; min-height: 42px; padding: .35rem .55rem; user-select: none; }
+.tray-team:hover { border-color: rgba(151, 178, 190, .25); }
+.tray-team:active { cursor: grabbing; }
+.tray-team > span { color: rgba(220, 231, 235, .75); font-size: .94rem; }
+.tray-bubble-ghost { background: radial-gradient(circle closest-side at center, transparent calc(100% - 10px), rgba(105, 139, 155, .04) calc(100% - 6px), rgba(158, 183, 192, .25) 100%); border-radius: 50%; height: 96px; opacity: .9; pointer-events: none; position: fixed; right: auto; top: 0; transform-origin: top left; width: 96px; z-index: 50; }
+.tray-bubble-ghost span { border: 1px solid rgba(13, 21, 26, .9); border-radius: 50%; height: 9px; position: absolute; transform: translate(-50%, -50%); width: 9px; }
+
+.data-editor { background: #0d151a; border: 1px solid rgba(151, 178, 190, .24); border-radius: 14px; color: #dce7eb; height: min(790px, calc(100vh - 20px)); margin: 10px auto; max-height: calc(100vh - 20px); padding: 0; width: min(720px, calc(100vw - 20px)); }
+.data-editor::backdrop { background: rgba(2, 6, 8, .72); backdrop-filter: blur(4px); }
+.data-editor-form { --data-actions-width: 145.6px; display: flex; flex-direction: column; height: 100%; overflow: auto; padding: .72rem .82rem; }
+.data-main-header, .data-editor-form > footer { align-items: center; display: flex; gap: .45rem; justify-content: space-between; }
+.data-header-actions { align-items: center; display: flex; gap: .45rem; }
+.data-editor .data-icon-button { align-items: center; display: flex; height: 31px; justify-content: center; padding: 0; width: 31px; }
+.data-icon-button svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.55; width: 17px; }
+.data-close svg { height: 20px; stroke-width: 1.7; width: 20px; }
+.data-team-directory { border-top: 1px solid rgba(151, 178, 190, .14); margin-top: .45rem; padding-top: .16rem; }
+.data-editor button { background: transparent; border: 1px solid rgba(151, 178, 190, .22); border-radius: 7px; color: #dce7eb; cursor: pointer; padding: .42rem .65rem; }
+.data-editor input { background: #111d23; border: 1px solid rgba(151, 178, 190, .16); border-radius: 6px; color: #e4ecef; min-width: 0; padding: .52rem; }
+.board-company-input { background: transparent !important; border-color: transparent !important; flex: 1; font-family: inherit; font-size: 1.08rem; font-weight: 600; width: auto; }
+.board-company-input:hover, .board-company-input:focus { background: #111d23 !important; border-color: rgba(151, 178, 190, .2) !important; outline: none; }
+.data-team-section { margin-top: .55rem; padding: .4rem 0 .5rem; }
+.data-team-heading { align-items: center; display: flex; gap: .45rem; justify-content: space-between; }
+.data-team-name { background: transparent !important; border-color: transparent !important; flex: 0 1 calc(100% - var(--data-actions-width) - .45rem); font-family: inherit; font-size: .93rem; font-weight: 600; width: calc(100% - var(--data-actions-width) - .45rem); }
+.data-team-name:hover, .data-team-name:focus, .data-colleague-name:hover, .data-colleague-name:focus { background: #111d23 !important; border-color: rgba(151, 178, 190, .18) !important; outline: none; }
+.data-add-colleague { align-items: center; border-color: transparent !important; color: rgba(203, 219, 225, .66) !important; display: flex; height: 31px; justify-content: center; padding: 0 !important; width: 31px; }
+.data-add-colleague:hover { border-color: rgba(151, 178, 190, .22) !important; }
+.data-add-colleague svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; width: 20px; }
+.data-colleagues { display: grid; gap: 0; padding: .04rem 0 0; }
+.data-colleague-row { align-items: center; display: flex; gap: .45rem; padding-left: .52rem; padding-right: calc(var(--data-actions-width) + .45rem); }
+.data-colleague-avatar { align-items: center; background: linear-gradient(145deg, var(--avatar-light), var(--avatar-dark)); border: 1px solid rgba(13, 21, 26, .9); border-radius: 50%; color: rgba(255,255,255,.92); display: flex; flex: 0 0 29px; font-size: .58rem; font-weight: 750; height: 29px; justify-content: center; overflow: hidden; width: 29px; }
+.data-colleague-avatar img { height: 100%; object-fit: cover; width: 100%; }
+.data-colleague-name { background: transparent !important; border-color: transparent !important; color: rgba(220, 231, 235, .74) !important; flex: 1; font-size: .89rem; min-height: 34px; padding-bottom: .42rem !important; padding-top: .42rem !important; width: auto; }
+.data-editor-form > footer { margin-top: auto; min-height: 24px; padding-top: .6rem; }
+.data-status { color: rgba(185, 204, 211, .58); font-size: .75rem; }
 
 .leadership-link { fill: none; shape-rendering: geometricPrecision; stroke: rgba(112, 132, 142, .2); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .team-bubble {

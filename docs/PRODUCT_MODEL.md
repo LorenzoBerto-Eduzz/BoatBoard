@@ -1,47 +1,50 @@
 # BoatBoard Product Model
 
-This note records the settled and implemented product behavior. Read it before changing the visual layout, organization model, or data boundary.
+Read this before changing visual layout, organization rules, or the data boundary.
 
 ## Visual Map
 
-- The page mixes very deep dark graphite gray, deep ocean blue, and near-black, with gray as the most apparent tone and a tiny overall light-blue cast to keep it alive. Its variation is a dim, restrained gradient frame: one thin cool gray-blue border with a moderately short soft inward color fade, visible without reading as a bright frame. Do not use visible corner spotlights, competing side patterns, or a bright center glow.
-- The company title is a configurable value; its current value is `Eduzz`, in a larger normal modern UI sans-serif font. A larger, normal-case `Boat Board` subtitle in a similar clean companion font is directly below it and receives a tiny optical right adjustment so the visible glyphs begin on the same left line.
-- Each team is a plain circular bubble defined by one dim, transparent blue-gray outline gradient with very little white that fades farther inward. Its fixed 28px fade is independent of bubble radius, and the outermost outline is part of the same gradient rather than a separate border. Keep the complete gradient, including that outer edge, restrained. Do not add an interior shine, highlight, or additional rings. Bubbles and lines are supporting indicators, so profile circles remain the focal point.
-- Do not use drop shadows around bubbles or profile circles.
-- Each colleague is represented by a circular profile image inside exactly one team bubble. Placeholder avatars may use an initial and color; their outline is thin and dark.
-- Do not display team names, member counts, or colleague names in the initial map.
-- The initial layout is calculated from the loaded organization data. It must keep team bubbles separated and profile circles evenly spaced within their own team bubble.
-- After loading, the v1 map remains still. There is no ambient drifting, pulsing, or ongoing simulation.
-- The arrangement test supports 1–99 profiles. Profiles form deterministic centered, mirror-balanced concentric polygon rings, with intentional special cases for visually sensitive counts. The accepted geometry uses 60px profiles, a 30px nominal gap, generous count-sensitive bubble padding, and nondecreasing bubble radii.
-- Placeholder initials and soft-vivid colors are provisional. Reassess the palette after profile images are available so image and non-image profiles can be judged together.
-- The stable logical square initially fits in the viewport. Users can smoothly zoom around the cursor, drag the content 1:1 at every zoom level (including the fully fitted view), pan without bounds, and double-click to reset the camera.
+- Use a deep graphite/ocean/near-black background with a restrained cool frame. Avoid bright center glows, spotlights, shine, extra rings, and drop shadows.
+- Show the configured company name and `Boat Board` subtitle at top left.
+- Team bubbles are plain circles with one restrained transparent blue-gray radial edge treatment and fixed 28px inward fade.
+- Profiles are the focal point. The initial map does not show team names, counts, or colleague names.
+- The map remains still after loading; there is no ambient animation.
+- The stable logical square initially fits the viewport. Zoom is smooth and cursor-centered; panning is unrestricted and 1:1; double-click resets.
+- Layouts support 1-99 profiles with deterministic centered, mirror-balanced concentric rings, 84px profiles, a nominal 38px edge gap, count-sensitive padding capped at 62px, and nondecreasing bubble radii.
+- Special layouts: 11 = 3+8, 12 = 3+9, 13 = 4+9; 25 = 4+8+13, 26 = 4+9+13, 27 = 4+9+14. Counts 3-5 are expanded 10%; counts 23-24 use slightly tighter rings.
+- Placeholder initials and soft-vivid colors remain provisional until assessed alongside real profile images.
 
 ## Organization Rules
 
-- A colleague has one team.
-- A team has one leader.
-- A leader can belong to a different team from the team they lead.
-- The leader stays visible only in their own team bubble.
-- A subtle stationary vector line connects the leader’s profile circle to the bubble of the team they lead. It must render smoothly and use a 2px stroke while remaining very dim, dark blue-gray, and less white than the bubble gradient’s brightest outer edge. It has no endpoint dots, and leader profiles receive no special outline or halo.
+- A colleague belongs to exactly one team.
+- A team has at most one leader; a colleague may lead multiple teams.
+- A leader may belong to another team and stays visible only inside their own team bubble.
+- A stationary 3px dark blue-gray line connects the leader profile outline to the led bubble outline along the shortest path. Connected and in-progress lines share the same style and have no dots, halos, or leader outline.
 
-## Data And Privacy Boundary
+## Data And Privacy
 
-BoatBoard is read-only. It must keep these layers separate:
+The hosted viewer is read-only. The local editor writes one contained private instance through this boundary:
 
 ```text
-Private local data source
-  → replaceable read-only adapter
-  → stable organization model
-  → visual layout and rendering
+Private instance (XLSX, images, board.json)
+  -> replaceable adapter
+  -> stable organization model
+  -> layout and rendering
 ```
 
-The exact local authoring format is intentionally undecided. Private colleague data, images, exports, and credentials must remain ignored by Git. When the product moves to company infrastructure, the local source can be replaced by a company-approved, secured internal integration without changing the organization model or visual layout.
+The tracked `project/instance_template/` seeds ignored `project/private_instance/`. XLSX owns organization records, `images/` owns the referenced files, and `board.json` owns visual state. Stable IDs preserve compatible layout during workbook replacement. Never commit private instance content.
 
-## Explicitly Deferred
+## Local Editor
 
-- Real directory data. The current visual demo uses authorized fictional placeholder data only.
-- Choosing the local data format.
-- Hover behavior, click behavior, information popups, search, and editing.
-- A search control beneath the title block is planned for a future iteration only; do not implement it yet.
-- The page remains a single non-scrolling Canvas whose internal bubble arrangement does not change with browser size or aspect ratio.
-- Hosting, authentication, authorization, and the production data integration.
+- A floating collapsible Teams panel lists only unplaced teams.
+- Drag a listed team to place it; drag a bubble to move it; drag into the panel or right-click to unplace it.
+- Drag a profile onto another team to assign leadership. Right-click a leader profile to clear its assignments.
+- Right-click a non-leader to begin same-team slot swapping; hover previews, click commits, and any key cancels.
+- Board Data autosaves company/team/colleague edits and supports adding records, importing a validated workbook, and opening the instance folder.
+- Bulk organization setup uses the workbook plus images referenced by filename.
+
+## Next And Deferred
+
+Next: complete the hosted/read-only viewer with hover states, click interactions, information popups, search, and polished presentation.
+
+Deferred: additional editor/import refinement, real directory data, reusable releases, private hosting, authentication/authorization, production integrations, and hosted multi-user editing.

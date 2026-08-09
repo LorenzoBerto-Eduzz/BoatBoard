@@ -18,6 +18,7 @@ local_data/
 private_data/
 project/local_data/
 project/private_data/
+project/private_instance/
 
 # Local-only assets kept on this machine
 **/local_assets/*
@@ -39,6 +40,7 @@ coverage/
 dist/
 build/
 out/
+outputs/
 tmp/
 temp/
 

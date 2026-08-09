@@ -1,13 +1,13 @@
 const maximumSupportedProfiles = 99;
-const profileDiameter = 60;
-const profileGap = 30;
-const bubblePadding = 88;
+const profileDiameter = 84;
+const profileGap = 38;
+const bubblePadding = 62;
 const centerSpacing = profileDiameter + profileGap;
 const arrangementCache = new Map();
 const minimumRadiusGrowth = centerSpacing * .015;
 
 function bubblePaddingForCount(count) {
-  return Math.min(bubblePadding, 50 + count * 8);
+  return Math.min(bubblePadding, 30 + count * 7);
 }
 
 function balancedRingCounts(total, ringTotal) {

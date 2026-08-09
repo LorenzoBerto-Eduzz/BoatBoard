@@ -1,48 +1,40 @@
 # BoatBoard
 
-BoatBoard is a local-first visual company directory prototype for Eduzz. It presents teams as bubbles and colleagues as profile circles within them. The first view calculates its layout on load and then remains still. The future goal is a privately hosted, secure internal site; real company data is not part of this repository.
+BoatBoard is a local-first visual company directory. Teams appear as bubbles and colleagues as profile circles. The eventual viewer is intended for private company hosting; real company data is not part of this repository.
 
-## Layout
+## Current Application
+
+The dependency-free application uses HTML, CSS, JavaScript modules, Canvas, and a small Python local file server. The read-only viewer supports smooth cursor-centered zoom and unrestricted drag-to-pan. A separate editor manages instance data, team placement, leadership connections, and profile ordering.
+
+Run from the repository root:
+
+```powershell
+python scripts/boatboard_server.py
+```
+
+Open `http://127.0.0.1:4173/` for the viewer or `http://127.0.0.1:4173/editor.html` for local authoring.
+
+## Data And Privacy
+
+The tracked `project/instance_template/` seeds an ignored `project/private_instance/`. One instance contains `boatboard.xlsx`, an `images/` folder, and `board.json`. Keep private records and images out of Git.
+
+Bulk setup uses the workbook plus images whose filenames match the colleague rows. The Board Data editor autosaves local changes and can validate/activate a replacement workbook.
+
+## Repository Frame
 
 ```text
 BoatBoard/
-  project/               actual code/product source by default
-  asset_staging/         Git-safe raw/reference/transfer assets
-  local_assets/          local-only ignored files
-  docs/                  durable project, workflow, and AI memory
-  notes/                 owner scratch and planning notes
-  scripts/               optional repeatable repository automation
-  .git-identity.example  copy into a project-specific .git-identity
-  .githooks/             reusable email identity-guard hooks
-  AGENTS.md              AI boot instructions
-  README.md              repository overview
+  project/        application source and reusable instance template
+  asset_staging/  Git-safe raw/reference assets
+  local_assets/   ignored machine-local material
+  docs/           durable project and AI memory
+  notes/          owner scratch space
+  scripts/        local server and future repeatable automation
 ```
-
-## Current Status
-
-The local visual prototype is implemented with dependency-free HTML, CSS, JavaScript modules, and Canvas. Its arrangement test contains 99 fictional teams with 1 through 99 colleagues respectively. The stable square map initially fits the viewport, supports smooth cursor-centered zoom and unrestricted drag-to-pan, and includes static leadership links. There are no profile information interactions or real company records.
-
-Run it from the repository root:
-
-```powershell
-python -m http.server 4173 --directory project
-```
-
-Then open `http://127.0.0.1:4173/` without a trailing backslash. The exact private local data authoring format remains intentionally undecided.
 
 ## AI Workflow
 
-`AGENTS.md` is the required AI-session boot file. It points to the handoff, memory protocol, workflow rules, project brief, Git guidance, and delivery policy.
+- `memcheck`: update durable project memory without committing.
+- `gitcheck`: perform `memcheck`, review and validate changes, verify Git identity, commit, and push when a remote exists.
 
-- `memcheck`: save distilled decisions, functionality, plans, constraints, commands, and pitfalls into durable docs only.
-- `gitcheck`: perform `memcheck`, inspect and validate the intended work, verify Git identity, commit, and push unless the owner says not to.
-
-AI should not commit, publish, package, export, release, deploy, or inspect local-only material unless explicitly asked.
-
-## Local And Private Files
-
-Use `asset_staging/` for raw/reference material that may be shared through Git but is not yet source code. Use `local_assets/`, `local_data/`, or `private_data/` for private or machine-local material that must stay ignored. Ask explicitly before having AI inspect local-only files.
-
-## Delivery
-
-No build, release, deployment, or hosting process is established. Any future hosting must be private and secure, and must use a company-approved solution.
+No delivery, release, or deployment process is established. Do not package, publish, or deploy without owner approval.

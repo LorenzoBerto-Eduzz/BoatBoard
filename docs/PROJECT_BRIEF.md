@@ -1,77 +1,45 @@
 # Project Brief
 
-This file is the durable identity card for the project. It should be filled once the template becomes a real project, then kept current when the project's purpose, stack, commands, or priorities change.
+## Identity And Purpose
 
-## Identity
+- Name: BoatBoard
+- Kind: local-first visual company directory and future reusable application
+- Source: `project/`
+- Stack: dependency-free HTML, CSS, JavaScript modules, Canvas, and Python local file server
 
-- Project name: `BoatBoard`
-- Project kind: `local-first visual company directory prototype`
-- Main project folder: `project/`
-- Primary language/stack: `dependency-free HTML, CSS, JavaScript modules, and Canvas`
-
-## Purpose
-
-BoatBoard will help colleagues discover the company structure and people beyond the small portion of the organization they already know. It visualizes the organization as a shared boat: teams are bubbles and colleagues are profile circles inside those bubbles.
-
-## Audience Or Users
-
-Initially, the owner locally. In the future, Eduzz colleagues through a privately hosted and company-approved internal service.
+BoatBoard helps colleagues discover the organization by representing teams as bubbles and people as profile circles.
 
 ## Current Scope
 
-The local browser-only, read-only arrangement prototype is implemented. Its stress-test data renders 99 fictional teams with membership counts from 1 through 99 into a high-performance Canvas map. It includes deterministic concentric profile layouts, dynamically sized team bubbles, leadership links, smooth zoom, and unrestricted panning. It contains no real company data and has no profile hover, click, search, editing, or popup behavior.
+`index.html` is a read-only viewer. `editor.html` authors one private local instance, places and moves teams, assigns leaders, and swaps profile slots. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
 
-## Run And Test Commands
+## Run And Validate
 
-```text
-Run: python -m http.server 4173 --directory project
-Open: http://127.0.0.1:4173/
-Validate: node --check project/app.js
-Validate data modules: node --check project/data/example-organization.js; node --check project/data/board-config.js
-Validate layout module: node --check project/layout/profile-arrangements.js
-Whitespace check: git diff --check
+```powershell
+python scripts/boatboard_server.py
+node --check project/app.js
+node --check project/data-editor.js
+node --check project/data/board-state.js
+node --check project/data/organization-source.js
+node --check project/layout/profile-arrangements.js
+python -m py_compile scripts/boatboard_server.py
+git diff --check
 ```
 
-If commands are not known yet, write `unknown` and ask before assuming.
+Viewer: `http://127.0.0.1:4173/`. Editor: `http://127.0.0.1:4173/editor.html`.
 
-## Delivery Or Release Process
+## Constraints
 
-- Delivery command/policy: `none established; do not package, deploy, or publish`
-- Versioning/release authority: `owner approval required`
+- Keep private colleague records, images, credentials, and exports in ignored local-only paths.
+- Preserve the replaceable data boundary between private source, organization model, and rendering.
+- Do not introduce a framework, build system, release flow, or deployment without owner approval.
+- Future hosting must be private, authenticated, and company-approved.
+- Preserve the accepted visual geometry recorded in `docs/PRODUCT_MODEL.md` unless specifically changed.
 
-Keep this brief summary current. Put detailed build, export, package, deployment, or publish instructions in `docs/DELIVERY_PROCESS.md` only after the project has a real process.
+## Current Priority
 
-## Important Constraints
+Finish the hosted/read-only viewer until it is final and presentable: hover behavior, information popups, search, and other viewer interactions. Additional editor/import expansion follows later unless the owner redirects.
 
-- The current prototype runs locally in a web browser.
-- The future hosted product must be private, secure, and accessible only to authorized colleagues through a company-approved hosting/authentication approach.
-- Never commit real colleague records, contact details, profile images, credentials, exports, or other private company material. Keep private local material in ignored paths.
-- The prototype intentionally has no framework, package manager, dependencies, build system, or deployment system. Do not introduce one without owner approval.
-- The settled visual direction is recorded precisely in `docs/PRODUCT_MODEL.md`; preserve it unless the owner requests a change.
-- On load, the UI must dynamically calculate safe non-overlapping positions for team bubbles and for colleague circles within their own team bubble. It remains still after initial layout in v1.
-- Keep data access modular: the visual layout reads a stable organization model from a replaceable, read-only source adapter. Do not bind it directly to a specific local file format or a future service.
+## Delivery
 
-## Current Priorities
-
-- Decide the owner-only local data authoring format before data is added.
-- Next, align with the owner on team-bubble arrangement and connection behavior.
-- Later, add the planned search control below the title and profile information interactions when requested.
-- Later, agree on private hosting, authentication, authorization, and data integration with the company’s technical team.
-
-## Glossary
-
-- **Colleague:** one person, represented visually by a circular profile image.
-- **Team bubble:** a translucent circle that contains the colleague circles of one team.
-- **Leadership link:** a subtle stationary line from a colleague to the one team bubble they lead. The leader remains displayed only in their own team bubble.
-- **Data-source adapter:** the read-only boundary that provides an organization model to the visual map. It is replaceable so a local source can later become a secured internal integration.
-
-## Known Pitfalls
-
-- Each colleague belongs to exactly one team in the initial model.
-- Each team has exactly one leader in the initial model; that leader may belong to another team.
-- Profile clicks, popups, hover panels, search, editing, and data import are explicitly deferred. Camera zoom and pan are implemented.
-- The current visual demo may use fictional placeholder data only. Do not add real company data until the owner explicitly directs it.
-- The map has no ambient animation in v1; “dynamic” means layout calculation when data is loaded or changed between sessions.
-- The exact private local authoring format and future company data source are not decided. Do not assume Excel, JSON, an HR system, or an API as the source of truth.
-- Do not add labels for team names, team counts, or colleague names to the initial map. A search control beneath the title block is planned for a future iteration only.
-- Browser caching can obscure CSS changes. `project/index.html` uses explicit asset query versions; advance them during visual iterations and use the exact URL without a trailing backslash.
+No delivery or release process exists. Versioning, packaging, hosting, and reusable GitHub releases remain owner-directed future work.

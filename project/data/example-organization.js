@@ -1,5 +1,5 @@
 // Demonstration-only data. Replace through the future private data-source adapter.
-const teamMemberCounts = Array.from({ length: 99 }, (_, index) => index + 1);
+const teamMemberCounts = [2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 9, 10];
 
 const names = [
   "João", "Maria", "Ana", "Bruno", "Carla", "Daniel", "Elisa", "Felipe",

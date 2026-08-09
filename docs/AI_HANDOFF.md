@@ -1,74 +1,58 @@
 # AI Handoff
 
-This is the portable continuity snapshot for AI sessions working on BoatBoard. The repository, not prior chat memory, is authoritative.
+This is the portable continuity snapshot for BoatBoard. The repository, not prior chat memory, is authoritative.
 
 ## Current State
 
-- Project: `BoatBoard`, a local-first visual company-directory prototype for Eduzz.
-- Source: `project/`.
-- Stack: dependency-free HTML, CSS, JavaScript modules, and Canvas.
-- Run from the repo root with `python -m http.server 4173 --directory project`.
-- Open `http://127.0.0.1:4173/`; direct `file://` opening does not load the JavaScript modules correctly.
-- No package, dependency, build, deployment, or release process exists.
-- No Git remote is currently configured.
-- The current arrangement stress test has 99 fictional teams with respective membership counts 1 through 99: 4,950 fictional colleague placeholders and one fictional leadership link per team.
-- No real company data, profile images, credentials, or private exports belong in Git.
+- Source: `project/`; stack: dependency-free HTML, CSS, JavaScript modules, Canvas, and a small Python local file server.
+- Run `python scripts/boatboard_server.py`, then open `http://127.0.0.1:4173/` or `/editor.html`. Direct `file://` opening cannot use the instance APIs.
+- `index.html` is the read-only viewer intended to become the hosted/presentable experience. `editor.html` is the local authoring interface.
+- No build, package, deployment, release, or hosting process exists. No Git remote is configured at this checkpoint.
+- Never commit real company records or profile images.
 
-## Implemented Product
+## Private Instance
 
-- `project/index.html` provides the page shell, Canvas, title, and cache-versioned assets.
-- `project/styles.css` provides the dark graphite/ocean visual system and fixed overlay title.
-- `project/app.js` provides Canvas rendering, the stable square logical scene, team grid placement, leadership links, overview bitmap caching, vector detail rendering, and the camera.
-- `project/layout/profile-arrangements.js` provides deterministic arrangements and bubble sizing for profile counts 1–99.
-- `project/data/board-config.js` holds replaceable presentation configuration, currently the `Eduzz` company name.
-- `project/data/example-organization.js` generates fictional stress-test data and provisional avatar colors.
+The tracked reusable seed is `project/instance_template/`. The active ignored instance is fully contained in `project/private_instance/`:
 
-The complete logical square fits the viewport by default. Mouse-wheel and trackpad gestures zoom smoothly around the cursor from 1x to 30x. Dragging pans 1:1 with the pointer, without bounds and at every zoom level—including the default fitted view. Double-click resets the camera. The scene itself has no ambient motion.
+- `boatboard.xlsx`: company/page values, teams, colleagues, membership, image filenames, role, and notes.
+- `images/`: actual profile-image files referenced by workbook filename.
+- `board.json`: placed state, coordinates, leaders, and per-team profile order.
 
-For performance, teams use cached low-resolution Canvas bitmaps at overview scale and switch to vector Canvas drawing when enlarged. Keep this approach unless profiling supports a change; the 4,950-profile test previously became jagged when all elements were independently transformed.
+`scripts/boatboard_server.py` creates missing instance files and exposes local APIs for organization data, board state, images, workbook replacement, and opening the instance folder. Workbook replacement is validated and backed up. Stable IDs preserve compatible layout/order/connections; obsolete state is removed and new teams remain unplaced. The browser retains a localStorage fallback for board state.
 
-## Accepted Profile Geometry
+## Editor
 
-- Profile diameter: 60 logical pixels.
-- Nominal gap: 30 logical pixels; center spacing is 90.
-- Profiles form centered, mirror-balanced, concentric complete polygon rings with close neighbor spacing and an overall circular/atomic/mandala appearance.
-- Counts 1–10 have intentional compact arrangements.
-- Visual special cases: 11 uses 3+8, 12 uses 3+9, 13 uses 4+9; 25 uses 4+8+13, 26 uses 4+9+13, and 27 uses 4+9+14.
-- Counts 3–5 are expanded 10%; count 23 has a slightly tighter outer ring; count 24 has slightly tighter rings.
-- Bubble padding grows for small teams and caps at 88 logical pixels. Computed bubble radii are normalized so a larger team never receives a smaller bubble than the preceding count.
-- The owner has accepted the current 1–99 profile arrangements. Preserve them unless a future request targets them.
+- The floating Teams panel lists unplaced teams and collapses into fixed document/menu controls.
+- Drag a listed team to place it; drag a bubble to move it; drag it into the panel or right-click to unplace it.
+- Drag a profile to another team to assign leadership. Right-click a leader to clear its assignments.
+- Right-click a non-leader profile, hover another same-team profile, and click to swap slots; press a key to cancel.
+- Board Data autosaves company/team/colleague edits to XLSX after a short debounce. It supports adding teams/colleagues, importing a validated workbook, and opening the complete instance folder.
+- Bulk setup uses the XLSX plus `images/`; each colleague row references an image filename. The editor shows the image or an initials/color fallback.
 
-Placeholder initials are deliberately large. Their soft-vivid palette is provisional; the owner wants to reassess colors later after profile images exist and image/non-image profiles can be judged together.
+## Rendering And Geometry
 
-## Visual And Data Rules
-
-- Team bubbles use one restrained transparent blue-gray radial edge treatment, with a fixed 28px logical inward fade and generous breathing room around profiles. Do not add shine, extra rings, or drop shadows.
-- Profiles are the focal point. Do not show team names, counts, or colleague names on the map yet.
-- Leadership lines are stationary, dim, dark blue-gray 2px vectors without endpoint dots or leader halos.
-- A colleague belongs to one team. A team has one leader, who may belong to another team and stays visible only in their own bubble.
-- Data access must remain read-only and replaceable: private source → adapter → stable organization model → layout/rendering.
-- The private authoring format and future authoritative company system remain undecided.
+- The logical square initially fits the viewport. Cursor-centered zoom ranges from .2x to 30x; unrestricted 1:1 drag pans at every zoom; double-click resets.
+- Cached overview Canvas bitmaps switch to vector detail rendering when enlarged. Preserve this performance design unless profiling supports a change.
+- Accepted layouts support 1-99 profiles using 84px profiles, a nominal 38px edge gap, mirror-balanced concentric rings, count-sensitive padding capped at 62px, and nondecreasing bubble radii.
+- Special cases: 11 = 3+8, 12 = 3+9, 13 = 4+9; 25 = 4+8+13, 26 = 4+9+13, 27 = 4+9+14. Counts 3-5 are expanded 10%; 23 and 24 use slightly tightened rings.
+- Team bubbles and 3px leadership links remain restrained dark blue-gray supporting indicators. Profiles are the focal point.
 
 ## Next Work
 
-The owner will next explain and align the desired team-bubble arrangement and connection behavior. Do not pre-empt that design. Search, profile hover/click/details, editing, import, real data, hosting, authentication, and production integration remain future owner-directed work.
+The next phase is explicitly the hosted/read-only viewer: finish hover behavior, profile/team interactions, information popups, search, and presentation until it is final and presentable. Defer additional instance/editor expansion until after that viewer phase unless the owner redirects.
+
+Later work includes a reusable GitHub release, hosting, authentication/authorization, company-approved private deployment, and production data integration. Do not pre-empt those decisions.
 
 ## Validation
 
 ```powershell
 node --check project/app.js
-node --check project/data/example-organization.js
-node --check project/data/board-config.js
+node --check project/data-editor.js
+node --check project/data/board-state.js
+node --check project/data/organization-source.js
 node --check project/layout/profile-arrangements.js
+python -m py_compile scripts/boatboard_server.py
 git diff --check
 ```
 
-Browser caching can conceal visual changes. Advance the query versions in `project/index.html` when CSS or imported JavaScript changes, then refresh the exact local URL.
-
-## Workflow
-
-- Read `AGENTS.md`, this file, the memory protocol, workflow rules, and project brief when catching up.
-- Inspect source and Git status before editing; preserve owner changes.
-- `memcheck` updates durable memory only.
-- `gitcheck` runs `memcheck`, reviews and validates changes, verifies identity protection, stages intended files, commits with an objective title plus bullet lines, and pushes when a remote exists.
-- Do not publish, package, deploy, or add a framework without owner approval.
+Advance asset query versions in both HTML files during visual iterations because browser caching can conceal changes.
