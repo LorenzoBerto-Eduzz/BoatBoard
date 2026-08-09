@@ -38,7 +38,7 @@ Viewer: `http://127.0.0.1:4173/`. Editor: `http://127.0.0.1:4173/editor.html`.
 
 ## Current Priority
 
-Finish the hosted/read-only viewer until it is final and presentable: hover behavior, information popups, search, and other viewer interactions. Additional editor/import expansion follows later unless the owner redirects.
+Finish the hosted/read-only viewer until it is final and presentable. Colleague search, focusing, selection, hover preview, and the profile information popup are implemented; team selection and the team information popup are next. Additional editor/import expansion follows later unless the owner redirects.
 
 ## Delivery
 

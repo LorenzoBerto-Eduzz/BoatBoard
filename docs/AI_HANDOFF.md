@@ -37,9 +37,16 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 - Special cases: 11 = 3+8, 12 = 3+9, 13 = 4+9; 25 = 4+8+13, 26 = 4+9+13, 27 = 4+9+14. Counts 3-5 are expanded 10%; 23 and 24 use slightly tightened rings.
 - Team bubbles and 3px leadership links remain restrained dark blue-gray supporting indicators. Profiles are the focal point.
 
+## Viewer Experience
+
+- The read-only viewer initially fits every placed bubble within the centered viewport square and supports smooth free pan/zoom without triggering browser zoom.
+- A left search panel lists colleagues alphabetically, filters names with compact transitions, and smoothly focuses a selected profile while leaving the panel open until explicitly closed.
+- Profiles use a pointer cursor, show a delayed hover-preview popup, and open a persistent selected popup on click. Search selection also opens the popup and displays a subtle 4px selection ring.
+- The fixed-scale profile popup remains anchored to the appropriate profile corner while the board moves. It currently displays the avatar, name, optional WhatsApp and Discord values, and a seven-line multiline description area; workbook/API fields support those values.
+
 ## Next Work
 
-The next phase is explicitly the hosted/read-only viewer: finish hover behavior, profile/team interactions, information popups, search, and presentation until it is final and presentable. Defer additional instance/editor expansion until after that viewer phase unless the owner redirects.
+Continue the hosted/read-only viewer with team selection and the team information popup, then finish remaining hover/search/presentation behavior until the viewer is final and presentable. Defer additional instance/editor expansion until after that viewer phase unless the owner redirects.
 
 Later work includes a reusable GitHub release, hosting, authentication/authorization, company-approved private deployment, and production data integration. Do not pre-empt those decisions.
 

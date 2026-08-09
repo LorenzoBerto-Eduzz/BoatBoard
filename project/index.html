@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#182027" />
     <title>BoatBoard - Eduzz</title>
-    <link rel="stylesheet" href="styles.css?v=boatboard-20260809-62" />
+    <link rel="stylesheet" href="styles.css?v=boatboard-20260809-85" />
   </head>
   <body>
     <main class="board" aria-label="BoatBoard organization map">
@@ -16,7 +16,31 @@
         <span class="brand-company"></span>
         <small>Boat Board</small>
       </header>
+      <section class="viewer-search" aria-label="Find a colleague">
+        <button class="viewer-search-toggle" type="button" aria-label="Search colleagues" aria-expanded="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75" /><path d="m12 12 4 4" /></svg>
+        </button>
+        <div class="viewer-search-panel" aria-hidden="true">
+          <header class="viewer-search-header">
+            <label class="viewer-search-field">
+              <input type="search" autocomplete="off" spellcheck="false" aria-label="Search colleagues" placeholder="Search colleagues" />
+            </label>
+            <button class="viewer-search-close" type="button" aria-label="Close search">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
+            </button>
+          </header>
+          <div class="viewer-search-results" role="list"></div>
+        </div>
+      </section>
+      <aside class="profile-popup" aria-hidden="true" aria-label="Colleague information">
+        <button class="profile-popup-close" type="button" aria-label="Close colleague information">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
+        </button>
+        <div class="profile-popup-content"></div>
+      </aside>
     </main>
-    <script type="module" src="app.js?v=boatboard-20260809-53"></script>
+    <script type="module" src="app.js?v=boatboard-20260809-84"></script>
+    <script type="module" src="viewer-search.js?v=boatboard-20260809-73"></script>
+    <script type="module" src="profile-popup.js?v=boatboard-20260809-80"></script>
   </body>
 </html>

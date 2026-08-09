@@ -70,6 +70,10 @@ def read_organization(path: Path = WORKBOOK) -> dict[str, object]:
             "teamId": team_id,
             "imageUrl": f"/instance-images/{image_filename}" if image_filename else None,
             "role": str(row.get("role") or "").strip(),
+            "notes": str(row.get("notes") or "").strip(),
+            "whatsapp": str(row.get("whatsapp") or "").strip(),
+            "discord": str(row.get("discord") or "").strip(),
+            "description": str(row.get("description") or "").strip(),
         })
     organization = {
         "companyName": str(company_values.get("company_name") or "BoatBoard"),
@@ -98,7 +102,8 @@ def write_organization(payload: dict[str, object]) -> None:
         image_filename = Path(str(person.get("imageFilename") or "")).name
         colleagues_sheet.append([
             person.get("id", ""), person.get("name", ""), person.get("teamId", ""),
-            image_filename, person.get("role", ""), "",
+            image_filename, person.get("role", ""), person.get("notes", ""),
+            person.get("whatsapp", ""), person.get("discord", ""), person.get("description", ""),
         ])
     temporary = WORKBOOK.with_name(f"{WORKBOOK.stem}.tmp.xlsx")
     workbook.save(temporary)

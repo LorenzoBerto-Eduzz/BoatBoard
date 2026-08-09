@@ -27,6 +27,20 @@ const teamCacheScale = .4;
 let frameRequested = false;
 let interaction = null;
 let ignoreNextContextMenu = false;
+let cameraEase = .24;
+let initialViewerFitApplied = false;
+let selectedProfileId = null;
+let previewProfileId = null;
+let hoverCandidateId = null;
+let hoverTimer = null;
+
+if (!isEditor) {
+  addEventListener("wheel", (event) => {
+    if (event.ctrlKey) event.preventDefault();
+  }, { capture: true, passive: false });
+  addEventListener("gesturestart", (event) => event.preventDefault(), { capture: true, passive: false });
+  addEventListener("gesturechange", (event) => event.preventDefault(), { capture: true, passive: false });
+}
 
 function initials(name) {
   return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -161,10 +175,83 @@ function visibleCircle(x, y, radius) {
   return x + radius >= 0 && y + radius >= 0 && x - radius <= viewport.width && y - radius <= viewport.height;
 }
 
+function fitPlacedBubbles() {
+  const placed = renderedTeams.filter((team) => teamState(team).placed);
+  if (placed.length === 0) return;
+  const bounds = placed.reduce((result, team) => {
+    const state = teamState(team);
+    result.left = Math.min(result.left, state.x - team.radius);
+    result.right = Math.max(result.right, state.x + team.radius);
+    result.top = Math.min(result.top, state.y - team.radius);
+    result.bottom = Math.max(result.bottom, state.y + team.radius);
+    return result;
+  }, { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
+  const margin = Math.min(52, Math.max(28, Math.min(viewport.width, viewport.height) * .045));
+  const availableSquare = Math.max(1, Math.min(viewport.width, viewport.height) - margin * 2);
+  const contentSize = Math.max(bounds.right - bounds.left, bounds.bottom - bounds.top, 1);
+  const fittedSceneScale = availableSquare / contentSize;
+  camera.scale = Math.min(30, Math.max(.08, fittedSceneScale / viewport.fitScale));
+  const appliedSceneScale = viewport.fitScale * camera.scale;
+  camera.x = viewport.width / 2 - viewport.sceneLeft - (bounds.left + bounds.right) / 2 * appliedSceneScale;
+  camera.y = viewport.height / 2 - viewport.sceneTop - (bounds.top + bounds.bottom) / 2 * appliedSceneScale;
+  Object.assign(targetCamera, camera);
+}
+
 function profileWorldPosition(team, profile) {
   const state = teamState(team);
   const position = profileSlotPosition(team, profile);
   return { x: state.x + position.x, y: state.y + position.y };
+}
+
+function focusColleague(personId, focusScale = .5) {
+  if (isEditor) return;
+  const source = profilesById.get(personId);
+  if (!source || !teamState(source.team).placed) return;
+  const position = profileWorldPosition(source.team, source.profile);
+  targetCamera.scale = Math.min(30, Math.max(.08, focusScale));
+  const scale = viewport.fitScale * targetCamera.scale;
+  const searchPanel = document.querySelector(".viewer-search.is-open .viewer-search-panel");
+  const remainingCenter = searchPanel
+    ? (searchPanel.getBoundingClientRect().right + viewport.width) / 2
+    : viewport.width / 2;
+  const focusX = viewport.width / 2 + (remainingCenter - viewport.width / 2) * .62;
+  const focusY = viewport.height / 2 + profileLayoutConfig.profileDiameter / 2 * scale +
+    Math.min(32, viewport.height * .035);
+  targetCamera.x = focusX - viewport.sceneLeft - position.x * scale;
+  targetCamera.y = focusY - viewport.sceneTop - position.y * scale;
+  cameraEase = .065;
+  requestDraw();
+}
+
+function publishSelectedProfilePosition() {
+  const popupProfileId = selectedProfileId ?? previewProfileId;
+  if (!popupProfileId) return;
+  const source = profilesById.get(popupProfileId);
+  if (!source || !teamState(source.team).placed) return;
+  const position = profileWorldPosition(source.team, source.profile);
+  dispatchEvent(new CustomEvent("boatboard:profile-position", {
+    detail: {
+      personId: popupProfileId,
+      x: sceneToScreenX(position.x),
+      y: sceneToScreenY(position.y),
+      radius: profileLayoutConfig.profileDiameter / 2 * sceneScale(),
+    },
+  }));
+}
+
+function drawSelectedProfileRing() {
+  if (!selectedProfileId) return;
+  const source = profilesById.get(selectedProfileId);
+  if (!source || !teamState(source.team).placed) return;
+  const position = profileWorldPosition(source.team, source.profile);
+  const radius = profileLayoutConfig.profileDiameter / 2 * sceneScale() + 6;
+  context.save();
+  context.beginPath();
+  context.arc(sceneToScreenX(position.x), sceneToScreenY(position.y), radius, 0, Math.PI * 2);
+  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.lineWidth = 4;
+  context.stroke();
+  context.restore();
 }
 
 function drawLineBetweenProfileAndTeam(sourceTeam, profile, targetTeam) {
@@ -281,10 +368,13 @@ function drawScene() {
     Math.abs(targetCamera.y - camera.y) / 100,
   );
   if (!interaction && cameraDifference > .0001) {
-    camera.scale += (targetCamera.scale - camera.scale) * .24;
-    camera.x += (targetCamera.x - camera.x) * .24;
-    camera.y += (targetCamera.y - camera.y) * .24;
-  } else if (!interaction) Object.assign(camera, targetCamera);
+    camera.scale += (targetCamera.scale - camera.scale) * cameraEase;
+    camera.x += (targetCamera.x - camera.x) * cameraEase;
+    camera.y += (targetCamera.y - camera.y) * cameraEase;
+  } else if (!interaction) {
+    Object.assign(camera, targetCamera);
+    cameraEase = .24;
+  }
   context.clearRect(0, 0, viewport.width, viewport.height);
   drawLeadershipLinks();
   const scale = sceneScale();
@@ -317,6 +407,8 @@ function drawScene() {
       y: screenToSceneY(interaction.pointerY),
     });
   }
+  if (!isEditor) drawSelectedProfileRing();
+  publishSelectedProfilePosition();
   if (!interaction && cameraDifference > .0001) requestDraw();
 }
 
@@ -339,6 +431,10 @@ function resizeCanvas() {
   canvas.style.width = `${viewport.width}px`;
   canvas.style.height = `${viewport.height}px`;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  if (!isEditor && !initialViewerFitApplied) {
+    fitPlacedBubbles();
+    initialViewerFitApplied = true;
+  }
   requestDraw();
 }
 
@@ -437,9 +533,64 @@ brandSubtitle.textContent = isEditor ? `${organization.pageTitle} Editor` : orga
 resizeCanvas();
 addEventListener("resize", resizeCanvas);
 if (!isEditor) {
+  addEventListener("boatboard:select-colleague", (event) => {
+    selectedProfileId = event.detail?.personId ?? null;
+    previewProfileId = null;
+    requestDraw();
+  });
+  addEventListener("boatboard:close-colleague", () => {
+    selectedProfileId = null;
+    requestDraw();
+  });
+  addEventListener("boatboard:focus-colleague", (event) => {
+    focusColleague(event.detail?.personId, event.detail?.scale);
+  });
   addEventListener("storage", (event) => {
     if (event.key === boardStateStorageKey) location.reload();
   });
+}
+
+function clearProfileHover() {
+  clearTimeout(hoverTimer);
+  hoverTimer = null;
+  hoverCandidateId = null;
+  board.classList.remove("is-profile-hover");
+  if (previewProfileId) {
+    const personId = previewProfileId;
+    previewProfileId = null;
+    dispatchEvent(new CustomEvent("boatboard:preview-colleague-end", { detail: { personId } }));
+  }
+}
+
+if (!isEditor) {
+  board.addEventListener("pointermove", (event) => {
+    if (interaction || selectedProfileId || event.target.closest(".viewer-search, .profile-popup-close")) {
+      clearProfileHover();
+      return;
+    }
+    const pointer = localPointer(event);
+    const hovered = profileAt(pointer.x, pointer.y);
+    const personId = hovered?.profile.id ?? null;
+    board.classList.toggle("is-profile-hover", Boolean(personId));
+    if (personId === hoverCandidateId) return;
+    clearTimeout(hoverTimer);
+    if (previewProfileId) {
+      const previousId = previewProfileId;
+      previewProfileId = null;
+      dispatchEvent(new CustomEvent("boatboard:preview-colleague-end", { detail: { personId: previousId } }));
+    }
+    hoverCandidateId = personId;
+    if (!hovered) return;
+    hoverTimer = setTimeout(() => {
+      if (hoverCandidateId !== personId || selectedProfileId) return;
+      previewProfileId = personId;
+      dispatchEvent(new CustomEvent("boatboard:preview-colleague", {
+        detail: { personId, placement: "auto", x: pointer.x, y: pointer.y },
+      }));
+      requestDraw();
+    }, 1000);
+  });
+  board.addEventListener("pointerleave", clearProfileHover);
 }
 if (isEditor) {
   saveBoardState(boardState);
@@ -453,12 +604,14 @@ if (isEditor) {
 
 board.addEventListener("wheel", (event) => {
   event.preventDefault();
+  if (!isEditor) clearProfileHover();
   const pointer = localPointer(event);
   const deltaMultiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.height : 1;
   const normalizedDelta = Math.max(-120, Math.min(120, event.deltaY * deltaMultiplier));
   const depthBoost = .8 + Math.sqrt(targetCamera.scale) * .2;
   const gestureBoost = event.ctrlKey ? 1.35 : 1;
-  const nextScale = Math.min(30, Math.max(.2, targetCamera.scale * Math.exp(-normalizedDelta * .0054 * depthBoost * gestureBoost)));
+  cameraEase = .24;
+  const nextScale = Math.min(30, Math.max(.08, targetCamera.scale * Math.exp(-normalizedDelta * .0054 * depthBoost * gestureBoost)));
   const ratio = nextScale / targetCamera.scale;
   targetCamera.x = pointer.x - viewport.sceneLeft - (pointer.x - viewport.sceneLeft - targetCamera.x) * ratio;
   targetCamera.y = pointer.y - viewport.sceneTop - (pointer.y - viewport.sceneTop - targetCamera.y) * ratio;
@@ -469,6 +622,8 @@ board.addEventListener("wheel", (event) => {
 board.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   const pointer = localPointer(event);
+  if (!isEditor) clearProfileHover();
+  cameraEase = .24;
   targetCamera.scale = camera.scale;
   targetCamera.x = camera.x;
   targetCamera.y = camera.y;
@@ -485,7 +640,10 @@ board.addEventListener("pointerdown", (event) => {
     }
   }
   if (!interaction) {
-    interaction = { type: "pan", pointerId: event.pointerId, pointerX: event.clientX, pointerY: event.clientY, x: camera.x, y: camera.y };
+    interaction = {
+      type: "pan", pointerId: event.pointerId, pointerX: event.clientX, pointerY: event.clientY,
+      x: camera.x, y: camera.y, moved: false, clickProfile: isEditor ? null : profileAt(pointer.x, pointer.y),
+    };
     board.classList.add("is-panning");
   }
   board.setPointerCapture(event.pointerId);
@@ -516,8 +674,12 @@ addEventListener("pointermove", (event) => {
   }
   if (!interaction || interaction.pointerId !== event.pointerId) return;
   if (interaction.type === "pan") {
-    camera.x = interaction.x + event.clientX - interaction.pointerX;
-    camera.y = interaction.y + event.clientY - interaction.pointerY;
+    const dx = event.clientX - interaction.pointerX;
+    const dy = event.clientY - interaction.pointerY;
+    if (!interaction.moved && Math.hypot(dx, dy) <= 3) return;
+    interaction.moved = true;
+    camera.x = interaction.x + dx;
+    camera.y = interaction.y + dy;
     targetCamera.x = camera.x;
     targetCamera.y = camera.y;
   } else if (interaction.type === "team") {
@@ -539,7 +701,18 @@ addEventListener("pointermove", (event) => {
 function stopInteraction(event) {
   if (!interaction || interaction.pointerId !== event.pointerId) return;
   const completed = interaction;
-  if (event.type === "pointerup" && completed.type === "connection" && completed.targetTeamId) {
+  if (event.type === "pointerup" && completed.type === "pan" && !completed.moved && completed.clickProfile) {
+    const pointer = localPointer(event);
+    dispatchEvent(new CustomEvent("boatboard:select-colleague", {
+      detail: {
+        personId: completed.clickProfile.profile.id,
+        placement: "auto",
+        source: "canvas",
+        x: pointer.x,
+        y: pointer.y,
+      },
+    }));
+  } else if (event.type === "pointerup" && completed.type === "connection" && completed.targetTeamId) {
     boardState.teams[completed.targetTeamId].leaderId = completed.source.profile.id;
     persistBoard();
   } else if (completed.type === "team") {
