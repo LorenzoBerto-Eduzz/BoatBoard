@@ -171,6 +171,7 @@ def reconcile_board_file(organization: dict[str, object]) -> None:
             "placed": stored.get("placed") is not False,
             "x": stored.get("x"),
             "y": stored.get("y"),
+            "rotation": stored.get("rotation", 0),
             "leaderId": leader_id,
             "profileOrder": profile_order,
         }

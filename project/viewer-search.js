@@ -9,6 +9,7 @@ const results = search?.querySelector(".viewer-search-results");
 
 if (search) {
   const organization = await loadOrganization();
+  const teamsById = new Map(organization.teams.map((team) => [team.id, team]));
   const normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
   const initials = (name) => name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
@@ -33,15 +34,19 @@ if (search) {
   [...organization.colleagues]
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }))
     .forEach((person) => {
+      const teamName = teamsById.get(person.teamId)?.name ?? "";
       const row = document.createElement("button");
       row.className = "viewer-search-result";
       row.type = "button";
       row.role = "listitem";
-      row.dataset.searchName = normalize(person.name);
+      row.dataset.searchTerms = normalize(`${person.name} ${teamName}`);
       const name = document.createElement("span");
       name.className = "viewer-search-name";
       name.textContent = person.name;
-      row.append(createAvatar(person), name);
+      const team = document.createElement("span");
+      team.className = "viewer-search-team";
+      team.textContent = teamName;
+      row.append(createAvatar(person), name, team);
       row.addEventListener("click", () => {
         dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
           detail: { personId: person.id, scale: .5 },
@@ -56,7 +61,7 @@ if (search) {
   function filterResults() {
     const query = normalize(input.value.trim());
     results.querySelectorAll(".viewer-search-result").forEach((row) => {
-      const hidden = !row.dataset.searchName.includes(query);
+      const hidden = !row.dataset.searchTerms.includes(query);
       clearTimeout(row.filterTimer);
       if (hidden) {
         row.classList.add("is-filtered-out");

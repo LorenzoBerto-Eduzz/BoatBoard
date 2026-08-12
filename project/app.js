@@ -4,7 +4,7 @@ import {
   loadBoardState,
   reconcileBoardState,
   saveBoardState,
-} from "./data/board-state.js?v=boatboard-20260808-50";
+} from "./data/board-state.js?v=boatboard-20260809-91";
 import { getProfileArrangement, profileLayoutConfig } from "./layout/profile-arrangements.js?v=boatboard-20260808-50";
 
 const board = document.querySelector(".board");
@@ -28,7 +28,7 @@ let frameRequested = false;
 let interaction = null;
 let ignoreNextContextMenu = false;
 let cameraEase = .24;
-let initialViewerFitApplied = false;
+let initialFitApplied = false;
 let selectedProfileId = null;
 let previewProfileId = null;
 let hoverCandidateId = null;
@@ -108,7 +108,18 @@ await Promise.all(renderedTeams.flatMap((team) => team.profiles.map(async (profi
 })));
 
 function profileSlotPosition(team, profile) {
-  return team.positions[profile.slotIndex];
+  return rotateProfilePosition(team.positions[profile.slotIndex], teamState(team).rotation);
+}
+
+function rotateProfilePosition(position, degrees = 0) {
+  if (!degrees) return position;
+  const radians = degrees * Math.PI / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  return {
+    x: position.x * cosine - position.y * sine,
+    y: position.x * sine + position.y * cosine,
+  };
 }
 
 function createTeamBitmap(team) {
@@ -120,10 +131,11 @@ function createTeamBitmap(team) {
   bitmapContext.scale(teamCacheScale, teamCacheScale);
   const center = team.radius;
   const bubbleGradient = bitmapContext.createRadialGradient(center, center, 0, center, center, team.radius);
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 28) / team.radius), "rgba(105, 139, 155, 0)");
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 17) / team.radius), "rgba(105, 139, 155, .018)");
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 3) / team.radius), "rgba(143, 170, 181, .095)");
-  bubbleGradient.addColorStop(1, "rgba(158, 183, 192, .155)");
+  bubbleGradient.addColorStop(0, "rgba(126, 154, 167, .024)");
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 42) / team.radius), "rgba(126, 154, 167, .03)");
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 25) / team.radius), "rgba(119, 151, 166, .038)");
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 3) / team.radius), "rgba(154, 181, 192, .125)");
+  bubbleGradient.addColorStop(1, "rgba(170, 194, 203, .19)");
   bitmapContext.fillStyle = bubbleGradient;
   bitmapContext.beginPath();
   bitmapContext.arc(center, center, team.radius, 0, Math.PI * 2);
@@ -214,12 +226,12 @@ function focusColleague(personId, focusScale = .5) {
   const remainingCenter = searchPanel
     ? (searchPanel.getBoundingClientRect().right + viewport.width) / 2
     : viewport.width / 2;
-  const focusX = viewport.width / 2 + (remainingCenter - viewport.width / 2) * .62;
+  const focusX = viewport.width / 2 + (remainingCenter - viewport.width / 2) * .7;
   const focusY = viewport.height / 2 + profileLayoutConfig.profileDiameter / 2 * scale +
-    Math.min(32, viewport.height * .035);
+    Math.min(44, viewport.height * .048);
   targetCamera.x = focusX - viewport.sceneLeft - position.x * scale;
   targetCamera.y = focusY - viewport.sceneTop - position.y * scale;
-  cameraEase = .065;
+  cameraEase = .17;
   requestDraw();
 }
 
@@ -271,7 +283,7 @@ function drawLineBetweenProfileAndTeam(sourceTeam, profile, targetTeam) {
   context.beginPath();
   context.moveTo(startCenterX + unitX * profileRadius, startCenterY + unitY * profileRadius);
   context.lineTo(targetCenterX - unitX * teamRadius, targetCenterY - unitY * teamRadius);
-  context.strokeStyle = "rgba(43, 58, 65, .25)";
+  context.strokeStyle = "rgba(70, 86, 94, .32)";
   context.stroke();
 }
 
@@ -302,7 +314,7 @@ function drawLeadershipLinks() {
       context.beginPath();
       context.moveTo(startX + dx / distance * radius, startY + dy / distance * radius);
       context.lineTo(interaction.pointerX, interaction.pointerY);
-      context.strokeStyle = "rgba(43, 58, 65, .25)";
+      context.strokeStyle = "rgba(70, 86, 94, .32)";
       context.stroke();
     }
   }
@@ -311,10 +323,11 @@ function drawLeadershipLinks() {
 
 function drawBubble(team, centerX, centerY, radius, scale) {
   const gradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 28 * scale)) / radius), "rgba(105, 139, 155, 0)");
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 17 * scale)) / radius), "rgba(105, 139, 155, .018)");
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 3 * scale)) / radius), "rgba(143, 170, 181, .095)");
-  gradient.addColorStop(1, "rgba(158, 183, 192, .155)");
+  gradient.addColorStop(0, "rgba(126, 154, 167, .024)");
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 42 * scale)) / radius), "rgba(126, 154, 167, .03)");
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 25 * scale)) / radius), "rgba(119, 151, 166, .038)");
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 3 * scale)) / radius), "rgba(154, 181, 192, .125)");
+  gradient.addColorStop(1, "rgba(170, 194, 203, .19)");
   context.fillStyle = gradient;
   context.beginPath();
   context.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -360,6 +373,42 @@ function drawProfile(team, profile, scale, overridePosition = null) {
   }
 }
 
+function rotationHandlePosition(team) {
+  const state = teamState(team);
+  return { x: sceneToScreenX(state.x + team.radius) + 10, y: sceneToScreenY(state.y) };
+}
+
+function drawRotationHandles() {
+  if (!isEditor) return;
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.lineWidth = 1.35;
+  context.strokeStyle = "rgba(151, 169, 177, .24)";
+  renderedTeams.forEach((team) => {
+    if (!teamState(team).placed) return;
+    const handle = rotationHandlePosition(team);
+    context.save();
+    context.translate(handle.x, handle.y);
+    context.beginPath();
+    context.moveTo(-2.5, -8);
+    context.quadraticCurveTo(4.5, 0, -2.5, 8);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(-2.5, -8);
+    context.lineTo(-2.1, -3.7);
+    context.moveTo(-2.5, -8);
+    context.lineTo(1.7, -7.2);
+    context.moveTo(-2.5, 8);
+    context.lineTo(-2.1, 3.7);
+    context.moveTo(-2.5, 8);
+    context.lineTo(1.7, 7.2);
+    context.stroke();
+    context.restore();
+  });
+  context.restore();
+}
+
 function drawScene() {
   frameRequested = false;
   const cameraDifference = Math.max(
@@ -386,14 +435,15 @@ function drawScene() {
     const radius = team.radius * scale;
     if (!visibleCircle(centerX, centerY, radius)) return;
     const reorderingThisTeam = interaction?.type === "reorder" && interaction.source.team.id === team.id;
-    if (scale <= teamCacheScale && !reorderingThisTeam) {
+    const rotatingThisTeam = interaction?.type === "rotation" && interaction.team.id === team.id;
+    if (scale <= teamCacheScale && !reorderingThisTeam && !rotatingThisTeam) {
       context.drawImage(team.bitmap, centerX - radius, centerY - radius, radius * 2, radius * 2);
     } else {
       drawBubble(team, centerX, centerY, radius, scale);
       team.profiles.forEach((profile) => {
         if (reorderingThisTeam && profile.id === interaction.source.profile.id) return;
         if (reorderingThisTeam && profile.id === interaction.candidate?.profile.id) {
-          const original = team.positions[interaction.originalSlot];
+          const original = rotateProfilePosition(team.positions[interaction.originalSlot], state.rotation);
           drawProfile(team, profile, scale, { x: state.x + original.x, y: state.y + original.y });
           return;
         }
@@ -407,6 +457,7 @@ function drawScene() {
       y: screenToSceneY(interaction.pointerY),
     });
   }
+  drawRotationHandles();
   if (!isEditor) drawSelectedProfileRing();
   publishSelectedProfilePosition();
   if (!interaction && cameraDifference > .0001) requestDraw();
@@ -431,9 +482,9 @@ function resizeCanvas() {
   canvas.style.width = `${viewport.width}px`;
   canvas.style.height = `${viewport.height}px`;
   context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  if (!isEditor && !initialViewerFitApplied) {
+  if (!initialFitApplied) {
     fitPlacedBubbles();
-    initialViewerFitApplied = true;
+    initialFitApplied = true;
   }
   requestDraw();
 }
@@ -467,6 +518,16 @@ function profileAt(x, y) {
     }
   }
   return null;
+}
+
+function rotationHandleAt(x, y) {
+  if (!isEditor) return null;
+  return [...renderedTeams].reverse().find((team) => {
+    const state = teamState(team);
+    if (!state.placed) return false;
+    const handle = rotationHandlePosition(team);
+    return Math.abs(x - handle.x) <= 8 && Math.abs(y - handle.y) <= 13;
+  }) ?? null;
 }
 
 function persistBoard() {
@@ -564,7 +625,7 @@ function clearProfileHover() {
 
 if (!isEditor) {
   board.addEventListener("pointermove", (event) => {
-    if (interaction || selectedProfileId || event.target.closest(".viewer-search, .profile-popup-close")) {
+    if (interaction || event.target.closest(".viewer-search, .profile-popup-close")) {
       clearProfileHover();
       return;
     }
@@ -572,6 +633,12 @@ if (!isEditor) {
     const hovered = profileAt(pointer.x, pointer.y);
     const personId = hovered?.profile.id ?? null;
     board.classList.toggle("is-profile-hover", Boolean(personId));
+    if (selectedProfileId) {
+      clearTimeout(hoverTimer);
+      hoverTimer = null;
+      hoverCandidateId = null;
+      return;
+    }
     if (personId === hoverCandidateId) return;
     clearTimeout(hoverTimer);
     if (previewProfileId) {
@@ -588,11 +655,17 @@ if (!isEditor) {
         detail: { personId, placement: "auto", x: pointer.x, y: pointer.y },
       }));
       requestDraw();
-    }, 1000);
+    }, 400);
   });
   board.addEventListener("pointerleave", clearProfileHover);
 }
 if (isEditor) {
+  board.addEventListener("pointermove", (event) => {
+    if (interaction) return;
+    const pointer = localPointer(event);
+    board.classList.toggle("is-rotation-hover", Boolean(rotationHandleAt(pointer.x, pointer.y)));
+  });
+  board.addEventListener("pointerleave", () => board.classList.remove("is-rotation-hover"));
   saveBoardState(boardState);
   renderUnplacedTeams();
   panelToggle.addEventListener("click", () => {
@@ -622,7 +695,12 @@ board.addEventListener("wheel", (event) => {
 board.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   const pointer = localPointer(event);
-  if (!isEditor) clearProfileHover();
+  const clickedViewerProfile = isEditor ? null : profileAt(pointer.x, pointer.y);
+  if (!isEditor && clickedViewerProfile?.profile.id === previewProfileId) {
+    clearTimeout(hoverTimer);
+    hoverTimer = null;
+    hoverCandidateId = null;
+  } else if (!isEditor) clearProfileHover();
   cameraEase = .24;
   targetCamera.scale = camera.scale;
   targetCamera.x = camera.x;
@@ -632,17 +710,26 @@ board.addEventListener("pointerdown", (event) => {
     if (source) {
       interaction = { type: "connection", pointerId: event.pointerId, pointerX: pointer.x, pointerY: pointer.y, source, targetTeamId: null };
     } else {
-      const team = teamAt(pointer.x, pointer.y);
-      if (team) {
+      const rotationTeam = rotationHandleAt(pointer.x, pointer.y);
+      if (rotationTeam) {
+        interaction = {
+          type: "rotation", pointerId: event.pointerId, team: rotationTeam,
+          pointerY: event.clientY, rotation: teamState(rotationTeam).rotation,
+        };
+        board.classList.add("is-rotating");
+      } else {
+        const team = teamAt(pointer.x, pointer.y);
+        if (team) {
         const state = teamState(team);
         interaction = { type: "team", pointerId: event.pointerId, team, pointerX: event.clientX, pointerY: event.clientY, x: state.x, y: state.y };
+        }
       }
     }
   }
   if (!interaction) {
     interaction = {
       type: "pan", pointerId: event.pointerId, pointerX: event.clientX, pointerY: event.clientY,
-      x: camera.x, y: camera.y, moved: false, clickProfile: isEditor ? null : profileAt(pointer.x, pointer.y),
+      x: camera.x, y: camera.y, moved: false, clickProfile: clickedViewerProfile,
     };
     board.classList.add("is-panning");
   }
@@ -686,6 +773,10 @@ addEventListener("pointermove", (event) => {
     const state = teamState(interaction.team);
     state.x = interaction.x + (event.clientX - interaction.pointerX) / sceneScale();
     state.y = interaction.y + (event.clientY - interaction.pointerY) / sceneScale();
+  } else if (interaction.type === "rotation") {
+    const degrees = interaction.rotation + (event.clientY - interaction.pointerY) * .6;
+    const snapped = Math.round(degrees / 10) * 10;
+    teamState(interaction.team).rotation = ((snapped % 360) + 360) % 360;
   } else if (interaction.type === "connection") {
     const pointer = localPointer(event);
     interaction.pointerX = pointer.x;
@@ -723,6 +814,9 @@ function stopInteraction(event) {
       renderUnplacedTeams();
     }
     persistBoard();
+  } else if (completed.type === "rotation") {
+    completed.team.bitmap = createTeamBitmap(completed.team);
+    persistBoard();
   } else if (completed.type === "tray") {
     completed.ghost.remove();
     const boardBounds = board.getBoundingClientRect();
@@ -740,6 +834,7 @@ function stopInteraction(event) {
   }
   interaction = null;
   board.classList.remove("is-panning");
+  board.classList.remove("is-rotating");
   if (board.hasPointerCapture(event.pointerId)) board.releasePointerCapture(event.pointerId);
   requestDraw();
 }

@@ -16,7 +16,7 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 
 - `boatboard.xlsx`: company/page values, teams, colleagues, membership, image filenames, role, and notes.
 - `images/`: actual profile-image files referenced by workbook filename.
-- `board.json`: placed state, coordinates, leaders, and per-team profile order.
+- `board.json`: placed state, coordinates, leaders, per-team profile order, and arrangement rotation.
 
 `scripts/boatboard_server.py` creates missing instance files and exposes local APIs for organization data, board state, images, workbook replacement, and opening the instance folder. Workbook replacement is validated and backed up. Stable IDs preserve compatible layout/order/connections; obsolete state is removed and new teams remain unplaced. The browser retains a localStorage fallback for board state.
 
@@ -26,23 +26,26 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 - Drag a listed team to place it; drag a bubble to move it; drag it into the panel or right-click to unplace it.
 - Drag a profile to another team to assign leadership. Right-click a leader to clear its assignments.
 - Right-click a non-leader profile, hover another same-team profile, and click to swap slots; press a key to cancel.
+- A compact curved handle immediately right of each placed bubble rotates its profile arrangement by vertical drag in persisted 10-degree increments; the base arrangement and upright profile content remain unchanged.
 - Board Data autosaves company/team/colleague edits to XLSX after a short debounce. It supports adding teams/colleagues, importing a validated workbook, and opening the complete instance folder.
 - Bulk setup uses the XLSX plus `images/`; each colleague row references an image filename. The editor shows the image or an initials/color fallback.
+- The editor and viewer both initially fit all placed bubbles inside the centered content square. Board Data is a centered, header-fixed modal whose team directory scrolls without a visible scrollbar.
 
 ## Rendering And Geometry
 
-- The logical square initially fits the viewport. Cursor-centered zoom ranges from .2x to 30x; unrestricted 1:1 drag pans at every zoom; double-click resets.
+- The logical square initially fits the viewport. Cursor-centered zoom ranges from .08x to 30x; unrestricted 1:1 drag pans at every zoom; double-click resets.
 - Cached overview Canvas bitmaps switch to vector detail rendering when enlarged. Preserve this performance design unless profiling supports a change.
 - Accepted layouts support 1-99 profiles using 84px profiles, a nominal 38px edge gap, mirror-balanced concentric rings, count-sensitive padding capped at 62px, and nondecreasing bubble radii.
 - Special cases: 11 = 3+8, 12 = 3+9, 13 = 4+9; 25 = 4+8+13, 26 = 4+9+13, 27 = 4+9+14. Counts 3-5 are expanded 10%; 23 and 24 use slightly tightened rings.
-- Team bubbles and 3px leadership links remain restrained dark blue-gray supporting indicators. Profiles are the focal point.
+- Team bubbles use a 42px inward blue-gray edge fade, a faint tinted interior floor, and restrained brighter edges. Three-pixel leadership links remain supporting indicators; profiles are the focal point.
 
 ## Viewer Experience
 
 - The read-only viewer initially fits every placed bubble within the centered viewport square and supports smooth free pan/zoom without triggering browser zoom.
-- A left search panel lists colleagues alphabetically, filters names with compact transitions, and smoothly focuses a selected profile while leaving the panel open until explicitly closed.
-- Profiles use a pointer cursor, show a delayed hover-preview popup, and open a persistent selected popup on click. Search selection also opens the popup and displays a subtle 4px selection ring.
-- The fixed-scale profile popup remains anchored to the appropriate profile corner while the board moves. It currently displays the avatar, name, optional WhatsApp and Discord values, and a seven-line multiline description area; workbook/API fields support those values.
+- An opaque left search panel lists colleagues alphabetically with profile image, colleague name, and a subtle bottom-right team name. Filtering matches accent-insensitive colleague or team names, uses compact transitions, and smoothly focuses a selected profile while leaving the panel open until explicitly closed.
+- Profiles use a pointer cursor, show a hover-preview after 0.4 seconds, and open a persistent selected popup on click. Clicking the currently previewed profile promotes the existing popup without flicker; search selection also opens it and displays a subtle 4px selection ring.
+- The opaque, non-click-through profile popup remains anchored to the appropriate profile corner while the board moves. It displays the avatar, a one- or two-line name, optional WhatsApp and Discord values, a five-line multiline description area, and compact team rows.
+- The colleague's own team is first and carries the `Equipe` label. Any additional teams they lead are derived from `board.json`, listed below with a 2px gap, and expand the content-sized popup naturally.
 
 ## Next Work
 

@@ -11,7 +11,7 @@ BoatBoard helps colleagues discover the organization by representing teams as bu
 
 ## Current Scope
 
-`index.html` is a read-only viewer. `editor.html` authors one private local instance, places and moves teams, assigns leaders, and swaps profile slots. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
+`index.html` is a read-only viewer with colleague/team search, smooth focus, hover preview, selection, and anchored colleague details. `editor.html` authors one private local instance, places and moves teams, rotates arrangements, assigns leaders, and swaps profile slots. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
 
 ## Run And Validate
 

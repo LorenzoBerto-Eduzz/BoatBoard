@@ -6,7 +6,7 @@ Read this before changing visual layout, organization rules, or the data boundar
 
 - Use a deep graphite/ocean/near-black background with a restrained cool frame. Avoid bright center glows, spotlights, shine, extra rings, and drop shadows.
 - Show the configured company name and `Boat Board` subtitle at top left.
-- Team bubbles are plain circles with one restrained transparent blue-gray radial edge treatment and fixed 28px inward fade.
+- Team bubbles are plain circles with one restrained transparent blue-gray radial edge treatment, a 42px inward fade, and a very faint tinted interior floor.
 - Profiles are the focal point. The initial map does not show team names, counts, or colleague names.
 - The map remains still after loading; there is no ambient animation.
 - The stable logical square initially fits the viewport. Zoom is smooth and cursor-centered; panning is unrestricted and 1:1; double-click resets.
@@ -40,11 +40,18 @@ The tracked `project/instance_template/` seeds ignored `project/private_instance
 - Drag a listed team to place it; drag a bubble to move it; drag into the panel or right-click to unplace it.
 - Drag a profile onto another team to assign leadership. Right-click a leader profile to clear its assignments.
 - Right-click a non-leader to begin same-team slot swapping; hover previews, click commits, and any key cancels.
+- Drag the compact curved handle right of a bubble vertically to rotate its profile arrangement in 10-degree increments. Rotation is stored per team in `board.json`; profile images and initials stay upright.
 - Board Data autosaves company/team/colleague edits and supports adding records, importing a validated workbook, and opening the instance folder.
 - Bulk organization setup uses the workbook plus images referenced by filename.
 
+## Read-Only Viewer
+
+- Search lists colleagues alphabetically and matches both colleague and team names. Results show profile, colleague name, and a subtle bottom-right team label.
+- Profile hover previews open after 0.4 seconds; clicking a preview promotes it seamlessly to a persistent selection with a 4px ring.
+- The anchored profile popup blocks input from reaching the board and shows avatar, name, WhatsApp, Discord, a five-line description, the colleague's own team, and any other teams they lead.
+
 ## Next And Deferred
 
-Next: complete the hosted/read-only viewer with hover states, click interactions, information popups, search, and polished presentation.
+Next: add team selection and the team information popup, then complete the remaining hosted/read-only viewer presentation.
 
 Deferred: additional editor/import refinement, real directory data, reusable releases, private hosting, authentication/authorization, production integrations, and hosted multi-user editing.

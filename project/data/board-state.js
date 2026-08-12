@@ -36,6 +36,7 @@ export function reconcileBoardState(savedState, defaultTeams, organization) {
       placed: stored ? stored.placed !== false : false,
       x: Number.isFinite(stored?.x) ? stored.x : fallback.x,
       y: Number.isFinite(stored?.y) ? stored.y : fallback.y,
+      rotation: Number.isFinite(stored?.rotation) ? stored.rotation : 0,
       leaderId: leader && leader.teamId !== team.id ? leader.id : null,
       profileOrder,
     }];
