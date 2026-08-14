@@ -2,9 +2,11 @@
 
 BoatBoard is a local-first visual company directory. Teams appear as bubbles and colleagues as profile circles. The eventual viewer is intended for private company hosting; real company data is not part of this repository.
 
+![BoatBoard interface preview](image.png)
+
 ## Current Application
 
-The dependency-free application uses HTML, CSS, JavaScript modules, Canvas, and a small Python local file server. The read-only viewer supports smooth cursor-centered zoom and unrestricted drag-to-pan. A separate editor manages instance data, team placement, leadership connections, and profile ordering.
+The dependency-free application uses HTML, CSS, JavaScript modules, Canvas, and a small Python local file server. The read-only viewer supports smooth cursor-centered zoom, unrestricted drag-to-pan, search, and anchored colleague/team details. The editor reuses the complete viewer and adds a toggleable authoring mode for instance data, team placement, leadership connections, profile ordering, and arrangement rotation.
 
 Run from the repository root:
 

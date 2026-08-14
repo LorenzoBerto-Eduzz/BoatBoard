@@ -7,7 +7,7 @@ This is the portable continuity snapshot for BoatBoard. The repository, not prio
 - Source: `project/`; stack: dependency-free HTML, CSS, JavaScript modules, Canvas, and a small Python local file server.
 - Run `python scripts/boatboard_server.py`, then open `http://127.0.0.1:4173/` or `/editor.html`. Direct `file://` opening cannot use the instance APIs.
 - `index.html` is the read-only viewer intended to become the hosted/presentable experience. `editor.html` is the local authoring interface.
-- No build, package, deployment, release, or hosting process exists. No Git remote is configured at this checkpoint.
+- No build, package, deployment, release, or hosting process exists. The source repository is backed up to GitHub, but no downloadable release exists yet.
 - Never commit real company records or profile images.
 
 ## Private Instance
@@ -17,6 +17,8 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 - `boatboard.xlsx`: company/page values, teams, colleagues, membership, image filenames, role, and notes.
 - `images/`: actual profile-image files referenced by workbook filename.
 - `board.json`: placed state, coordinates, leaders, per-team profile order, and arrangement rotation.
+
+Tracked application defaults and the seed workbook must remain generic (`BoatBoard`/example records). Company-specific titles, records, layouts, and profile images belong only in the ignored active instance.
 
 `scripts/boatboard_server.py` creates missing instance files and exposes local APIs for organization data, board state, images, workbook replacement, and opening the instance folder. Workbook replacement is validated and backed up. Stable IDs preserve compatible layout/order/connections; obsolete state is removed and new teams remain unplaced. The browser retains a localStorage fallback for board state.
 
