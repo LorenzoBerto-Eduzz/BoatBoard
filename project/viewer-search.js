@@ -77,7 +77,22 @@ if (search) {
     search.classList.add("is-open");
     toggle.setAttribute("aria-expanded", "true");
     panel.setAttribute("aria-hidden", "false");
-    requestAnimationFrame(() => input.focus({ preventScroll: true }));
+    requestAnimationFrame(() => {
+      input.focus({ preventScroll: true });
+      const margin = 18;
+      const panelRectangle = panel.getBoundingClientRect();
+      const activePopups = document.querySelectorAll(
+        ".profile-popup.is-open:not(.popup-outgoing), .team-popup.is-open:not(.popup-outgoing)",
+      );
+      let dx = 0;
+      activePopups.forEach((popup) => {
+        const rectangle = popup.getBoundingClientRect();
+        const overlaps = Math.min(rectangle.right, panelRectangle.right) > Math.max(rectangle.left, panelRectangle.left)
+          && Math.min(rectangle.bottom, panelRectangle.bottom) > Math.max(rectangle.top, panelRectangle.top);
+        if (overlaps) dx = Math.max(dx, panelRectangle.right + margin - rectangle.left);
+      });
+      if (dx > 0) dispatchEvent(new CustomEvent("boatboard:ensure-popup-visible", { detail: { dx, dy: 0 } }));
+    });
   }
 
   function closeSearch() {
@@ -94,6 +109,7 @@ if (search) {
   input.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeSearch();
   });
+  addEventListener("boatboard:enter-edit-mode", closeSearch);
   search.addEventListener("pointerdown", (event) => event.stopPropagation());
   search.addEventListener("dblclick", (event) => event.stopPropagation());
   search.addEventListener("wheel", (event) => {

@@ -22,21 +22,23 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 
 ## Editor
 
-- The floating Teams panel lists unplaced teams and collapses into fixed document/menu controls.
+- `editor.html` presents the same complete viewing experience as `index.html`, with the `Boat Board Editor` subtitle and a pencil button at the top right.
+- The pencil button enters authoring mode, closes viewer search/profile/team UI, opens the edit panel, and reveals rotation handles. Closing the panel returns to viewer interaction without refreshing the page.
+- The edit panel keeps unplaced teams first, followed by placed teams, with each group alphabetical. Collapsed team names are clean draggable labels; expanded teams expose name editing, colleague rows, add/delete actions, import, instance-folder access, and team creation.
 - Drag a listed team to place it; drag a bubble to move it; drag it into the panel or right-click to unplace it.
 - Drag a profile to another team to assign leadership. Right-click a leader to clear its assignments.
 - Right-click a non-leader profile, hover another same-team profile, and click to swap slots; press a key to cancel.
 - A compact curved handle immediately right of each placed bubble rotates its profile arrangement by vertical drag in persisted 10-degree increments; the base arrangement and upright profile content remain unchanged.
-- Board Data autosaves company/team/colleague edits to XLSX after a short debounce. It supports adding teams/colleagues, importing a validated workbook, and opening the complete instance folder.
+- Company/team/colleague edits autosave to XLSX after a short debounce. Organization changes rebuild the live board model in place, preserving compatible layout state and avoiding a page refresh.
 - Bulk setup uses the XLSX plus `images/`; each colleague row references an image filename. The editor shows the image or an initials/color fallback.
-- The editor and viewer both initially fit all placed bubbles inside the centered content square. Board Data is a centered, header-fixed modal whose team directory scrolls without a visible scrollbar.
+- The editor and viewer both initially fit all placed bubbles inside the centered content square.
 
 ## Rendering And Geometry
 
-- The logical square initially fits the viewport. Cursor-centered zoom ranges from .08x to 30x; unrestricted 1:1 drag pans at every zoom; double-click resets.
+- The logical square initially fits the viewport. Cursor-centered zoom ranges from .08x to 30x and unrestricted 1:1 drag pans at every zoom. Double-click has no camera action.
 - Cached overview Canvas bitmaps switch to vector detail rendering when enlarged. Preserve this performance design unless profiling supports a change.
 - Accepted layouts support 1-99 profiles using 84px profiles, a nominal 38px edge gap, mirror-balanced concentric rings, count-sensitive padding capped at 62px, and nondecreasing bubble radii.
-- Special cases: 11 = 3+8, 12 = 3+9, 13 = 4+9; 25 = 4+8+13, 26 = 4+9+13, 27 = 4+9+14. Counts 3-5 are expanded 10%; 23 and 24 use slightly tightened rings.
+- Special cases include 6 = center+5, 7 = center+6, 9 = inner 3+outer 6, 10 = inner 3+outer 7, 11 = 3+8, 12 = 3+9, 13 = 4+9, 25 = 4+8+13, 26 = 4+9+13, and 27 = 4+9+14. Counts 3-5 are expanded 10%; 23 and 24 use slightly tightened rings.
 - Team bubbles use a 42px inward blue-gray edge fade, a faint tinted interior floor, and restrained brighter edges. Three-pixel leadership links remain supporting indicators; profiles are the focal point.
 
 ## Viewer Experience
@@ -44,12 +46,15 @@ The tracked reusable seed is `project/instance_template/`. The active ignored in
 - The read-only viewer initially fits every placed bubble within the centered viewport square and supports smooth free pan/zoom without triggering browser zoom.
 - An opaque left search panel lists colleagues alphabetically with profile image, colleague name, and a subtle bottom-right team name. Filtering matches accent-insensitive colleague or team names, uses compact transitions, and smoothly focuses a selected profile while leaving the panel open until explicitly closed.
 - Profiles use a pointer cursor, show a hover-preview after 0.4 seconds, and open a persistent selected popup on click. Clicking the currently previewed profile promotes the existing popup without flicker; search selection also opens it and displays a subtle 4px selection ring.
-- The opaque, non-click-through profile popup remains anchored to the appropriate profile corner while the board moves. It displays the avatar, a one- or two-line name, optional WhatsApp and Discord values, a five-line multiline description area, and compact team rows.
+- Opaque, non-click-through profile and team popups remain anchored to their respective profile/bubble corners while the board moves. Placement prefers space away from the board content, avoids the search panel and the other popup, and pans only when necessary to keep the new popup visible. Indirect selection through a search/member/team row repositions an existing popup when required instead of allowing overlap.
+- Popup opening, replacement, and closing use short anchor-origin scale/opacity animations; outgoing and incoming popups can animate simultaneously with the incoming popup above the outgoing clone.
+- The profile popup displays the avatar, a one- or two-line name, optional WhatsApp, Discord, and email values, a dynamically sized multiline description, and compact team rows. Description fields start at four lines, grow to six lines with a partial-line scroll hint, then scroll without a visible scrollbar.
 - The colleague's own team is first and carries the `Equipe` label. Any additional teams they lead are derived from `board.json`, listed below with a 2px gap, and expand the content-sized popup naturally.
+- Clicking a bubble or a profile-popup team row opens the team popup and selects the bubble. It contains a wrapped team title, a two-column alphabetical member directory, the leader isolated on a final left-hand row with an external `Lider` tag, and a dynamically sized description below the list. Member lists show up to six rows plus a partial-row scroll hint; clicking a member opens that colleague's popup.
 
 ## Next Work
 
-Continue the hosted/read-only viewer with team selection and the team information popup, then finish remaining hover/search/presentation behavior until the viewer is final and presentable. Defer additional instance/editor expansion until after that viewer phase unless the owner redirects.
+Continue filling and polishing the team information experience, including final production fields/actions, then finish remaining hover/search/presentation behavior until the viewer is final and presentable. Defer production data ingestion and broader editor expansion until after that viewer phase unless the owner redirects.
 
 Later work includes a reusable GitHub release, hosting, authentication/authorization, company-approved private deployment, and production data integration. Do not pre-empt those decisions.
 
@@ -58,6 +63,9 @@ Later work includes a reusable GitHub release, hosting, authentication/authoriza
 ```powershell
 node --check project/app.js
 node --check project/data-editor.js
+node --check project/profile-popup.js
+node --check project/team-popup.js
+node --check project/viewer-search.js
 node --check project/data/board-state.js
 node --check project/data/organization-source.js
 node --check project/layout/profile-arrangements.js

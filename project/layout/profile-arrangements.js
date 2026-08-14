@@ -208,13 +208,57 @@ function buildCircularArrangement(count) {
     };
   }
   if (count === 6) {
-    const radius = centerSpacing * 1.18;
+    const radius = centerSpacing * 1.1;
     return {
       bubbleRadius: radius + profileDiameter / 2 + bubblePaddingForCount(count),
-      positions: Array.from({ length: count }, (_, index) => {
-        const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
+      positions: [{ x: 0, y: 0 }, ...Array.from({ length: 5 }, (_, index) => {
+        const angle = -Math.PI / 2 + index * Math.PI * 2 / 5;
         return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
-      }),
+      })],
+    };
+  }
+  if (count === 7) {
+    const radius = centerSpacing * .9;
+    return {
+      bubbleRadius: radius + profileDiameter / 2 + bubblePaddingForCount(count),
+      positions: [{ x: 0, y: 0 }, ...Array.from({ length: 6 }, (_, index) => {
+        const angle = -Math.PI / 2 + index * Math.PI * 2 / 6;
+        return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+      })],
+    };
+  }
+  if (count === 9) {
+    const innerRadius = centerSpacing * .58;
+    const outerRadius = centerSpacing * 1.52;
+    return {
+      bubbleRadius: outerRadius + profileDiameter / 2 + bubblePaddingForCount(count),
+      positions: [
+        ...Array.from({ length: 3 }, (_, index) => {
+          const angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
+          return { x: Math.cos(angle) * innerRadius, y: Math.sin(angle) * innerRadius };
+        }),
+        ...Array.from({ length: 6 }, (_, index) => {
+          const angle = -Math.PI / 2 + Math.PI / 6 + index * Math.PI * 2 / 6;
+          return { x: Math.cos(angle) * outerRadius, y: Math.sin(angle) * outerRadius };
+        }),
+      ],
+    };
+  }
+  if (count === 10) {
+    const innerRadius = centerSpacing * .62;
+    const outerRadius = centerSpacing * 1.58;
+    return {
+      bubbleRadius: outerRadius + profileDiameter / 2 + bubblePaddingForCount(count),
+      positions: [
+        ...Array.from({ length: 3 }, (_, index) => {
+          const angle = -Math.PI / 2 + index * Math.PI * 2 / 3;
+          return { x: Math.cos(angle) * innerRadius, y: Math.sin(angle) * innerRadius };
+        }),
+        ...Array.from({ length: 7 }, (_, index) => {
+          const angle = -Math.PI / 2 + Math.PI / 7 + index * Math.PI * 2 / 7;
+          return { x: Math.cos(angle) * outerRadius, y: Math.sin(angle) * outerRadius };
+        }),
+      ],
     };
   }
   if (count >= 11) return buildHarmonicArrangement(count);

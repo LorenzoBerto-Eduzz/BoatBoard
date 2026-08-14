@@ -5,35 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#182027" />
     <title>BoatBoard Editor - Eduzz</title>
-    <link rel="stylesheet" href="styles.css?v=boatboard-20260811-108" />
+    <link rel="stylesheet" href="styles.css?v=boatboard-20260814-149" />
   </head>
-  <body class="editor-mode">
+  <body class="editor-page">
     <main class="board" aria-label="BoatBoard organization editor">
-      <canvas class="organization-canvas" aria-label="Editable teams and colleagues"></canvas>
+      <div class="ocean-glow ocean-glow-one"></div>
+      <div class="ocean-glow ocean-glow-two"></div>
+      <canvas class="organization-canvas" aria-label="Teams and colleagues"></canvas>
       <header class="brand">
         <span class="brand-company"></span>
         <small>Boat Board Editor</small>
       </header>
-    </main>
-    <aside class="editor-panel" aria-label="Unplaced teams">
-      <div class="editor-panel-heading">
-        <strong>Teams</strong>
-        <div class="panel-actions">
-          <button class="data-open" type="button" aria-label="Open Board Data">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h7l3 3v11H5z" /><path d="M12 3v3h3" /></svg>
-          </button>
-          <button class="panel-toggle" type="button" aria-label="Hide teams panel" aria-expanded="true">
-            <svg class="panel-arrow-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.75 7.5 4.25 4.25 4.25-4.25" /></svg>
-            <svg class="panel-menu-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.75h12M4 10h12M4 14.25h12" /></svg>
-          </button>
+      <section class="viewer-search" aria-label="Find a colleague">
+        <button class="viewer-search-toggle" type="button" aria-label="Search colleagues" aria-expanded="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75" /><path d="m12 12 4 4" /></svg>
+        </button>
+        <div class="viewer-search-panel" aria-hidden="true">
+          <header class="viewer-search-header">
+            <label class="viewer-search-field">
+              <input type="search" autocomplete="off" spellcheck="false" aria-label="Search colegazz e equipezz" placeholder="Search colegazz e equipezz" />
+            </label>
+            <button class="viewer-search-close" type="button" aria-label="Close search">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
+            </button>
+          </header>
+          <div class="viewer-search-results" role="list"></div>
         </div>
-      </div>
-      <div class="unplaced-list"></div>
-    </aside>
-    <dialog class="data-editor" tabindex="-1">
-      <form class="data-editor-form">
+      </section>
+    </main>
+    <section class="editor-directory">
+      <button class="editor-directory-toggle" type="button" aria-label="Open editor panel" aria-expanded="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 14.75.75-3.25L13 3.25l3.25 3.25L8 14.75zM11.5 4.75l3.25 3.25" /></svg>
+      </button>
+      <aside class="editor-panel" aria-label="Board editor" aria-hidden="true">
         <header class="data-main-header">
-          <input class="board-company-input" name="companyName" aria-label="Company name" placeholder="Company name" required />
           <div class="data-header-actions">
             <button class="data-add-team data-icon-button" type="button" aria-label="Add team" title="Add team">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
@@ -50,11 +55,27 @@
             <input class="data-workbook-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
           </div>
         </header>
+        <div class="data-section-divider"></div>
         <section class="data-team-directory"><div class="data-teams"></div></section>
         <span class="data-status" aria-live="polite"></span>
-      </form>
-    </dialog>
-    <script type="module" src="app.js?v=boatboard-20260811-106"></script>
-    <script type="module" src="data-editor.js?v=boatboard-20260809-62"></script>
+      </aside>
+    </section>
+    <aside class="profile-popup" aria-hidden="true" aria-label="Colleague information">
+      <button class="profile-popup-close" type="button" aria-label="Close colleague information">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
+      </button>
+      <div class="profile-popup-content"></div>
+    </aside>
+    <aside class="team-popup" aria-hidden="true" aria-label="Team information">
+      <button class="team-popup-close" type="button" aria-label="Close team information">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" /></svg>
+      </button>
+      <div class="team-popup-content"></div>
+    </aside>
+    <script type="module" src="app.js?v=boatboard-20260814-148"></script>
+    <script type="module" src="viewer-search.js?v=boatboard-20260814-148"></script>
+    <script type="module" src="data-editor.js?v=boatboard-20260814-148"></script>
+    <script type="module" src="profile-popup.js?v=boatboard-20260814-148"></script>
+    <script type="module" src="team-popup.js?v=boatboard-20260814-148"></script>
   </body>
 </html>

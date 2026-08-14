@@ -5,17 +5,16 @@ import {
   reconcileBoardState,
   saveBoardState,
 } from "./data/board-state.js?v=boatboard-20260809-91";
-import { getProfileArrangement, profileLayoutConfig } from "./layout/profile-arrangements.js?v=boatboard-20260808-50";
+import { getProfileArrangement, profileLayoutConfig } from "./layout/profile-arrangements.js?v=boatboard-20260812-112";
 
 const board = document.querySelector(".board");
 const brandCompany = document.querySelector(".brand-company");
 const brandSubtitle = document.querySelector(".brand small");
 const canvas = document.querySelector(".organization-canvas");
 const editorPanel = document.querySelector(".editor-panel");
-const unplacedList = document.querySelector(".unplaced-list");
-const panelToggle = document.querySelector(".panel-toggle");
 const context = canvas.getContext("2d", { alpha: true });
-const isEditor = document.body.classList.contains("editor-mode");
+const isEditorPage = document.body.classList.contains("editor-page");
+let editActive = document.body.classList.contains("editor-mode");
 const organization = await loadOrganization();
 const teamGap = 12;
 const teamColumns = Math.max(1, Math.ceil(Math.sqrt(organization.teams.length)));
@@ -30,11 +29,19 @@ let ignoreNextContextMenu = false;
 let cameraEase = .24;
 let initialFitApplied = false;
 let selectedProfileId = null;
+let selectedTeamId = null;
 let previewProfileId = null;
 let hoverCandidateId = null;
 let hoverTimer = null;
+let organizationRefreshVersion = 0;
+const fallbackProfileColors = [
+  ["#e4bd5e", "#8f6424"], ["#f0d968", "#a48727"], ["#5c86b9", "#2b456f"],
+  ["#78c8df", "#367c9d"], ["#df817d", "#944a50"], ["#7bc27a", "#3d7b48"],
+  ["#60966a", "#2c5939"], ["#62b9ad", "#33766f"], ["#de9462", "#965334"],
+  ["#a78ac8", "#654d8d"], ["#dc87ad", "#914e73"], ["#8299c9", "#465d8e"],
+];
 
-if (!isEditor) {
+if (!editActive) {
   addEventListener("wheel", (event) => {
     if (event.ctrlKey) event.preventDefault();
   }, { capture: true, passive: false });
@@ -153,8 +160,9 @@ function createTeamBitmap(team) {
       bitmapContext.drawImage(profile.imageElement, x - profileRadius, y - profileRadius, profileRadius * 2, profileRadius * 2);
     } else {
       const gradient = bitmapContext.createLinearGradient(x - profileRadius, y - profileRadius, x + profileRadius, y + profileRadius);
-      gradient.addColorStop(0, profile.colors[0]);
-      gradient.addColorStop(1, profile.colors[1]);
+      const colors = profile.colors ?? fallbackProfileColors[0];
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(1, colors[1]);
       bitmapContext.fillStyle = gradient;
       bitmapContext.fillRect(x - profileRadius, y - profileRadius, profileRadius * 2, profileRadius * 2);
     }
@@ -177,10 +185,83 @@ function createTeamBitmap(team) {
 
 renderedTeams.forEach((team) => { team.bitmap = createTeamBitmap(team); });
 
+async function refreshOrganization(nextOrganization) {
+  const refreshVersion = ++organizationRefreshVersion;
+  const normalizedOrganization = {
+    ...nextOrganization,
+    teams: [...nextOrganization.teams],
+    colleagues: nextOrganization.colleagues.map((person, index) => ({
+      ...person,
+      colors: person.colors ?? fallbackProfileColors[index % fallbackProfileColors.length],
+    })),
+  };
+  const columns = Math.max(1, Math.ceil(Math.sqrt(normalizedOrganization.teams.length)));
+  const rows = Math.max(1, Math.ceil(normalizedOrganization.teams.length / columns));
+  const members = new Map(normalizedOrganization.teams.map((team) => [team.id, []]));
+  normalizedOrganization.colleagues.forEach((person) => members.get(person.teamId)?.push(person));
+  const refreshed = normalizedOrganization.teams.map((team, index) => {
+    const arrangement = arrangementForCount(members.get(team.id).length);
+    return {
+      ...team,
+      radius: arrangement.bubbleRadius,
+      positions: arrangement.positions,
+      defaultX: (index % columns + .5) * logicalSceneSize / columns,
+      defaultY: (Math.floor(index / columns) + .5) * logicalSceneSize / rows,
+      profiles: [...members.get(team.id)].sort((a, b) => a.name.localeCompare(b.name))
+        .map((profile, slotIndex) => ({ ...profile, slotIndex })),
+    };
+  });
+  const defaults = Object.fromEntries(refreshed.map((team) => [team.id, { x: team.defaultX, y: team.defaultY }]));
+  const reconciled = reconcileBoardState(boardState, defaults, normalizedOrganization);
+  const replacementProfiles = new Map(refreshed.flatMap((team) => team.profiles.map((profile) => [profile.id, profile])));
+  renderedTeams.forEach((team) => {
+    // Retain decoded images while a colleague's unrelated text fields are edited.
+    team.profiles.forEach((profile) => {
+      const replacement = replacementProfiles.get(profile.id);
+      if (replacement && replacement.imageUrl === profile.imageUrl) replacement.imageElement = profile.imageElement;
+    });
+  });
+  const refreshedProfilesById = new Map();
+  refreshed.forEach((team) => {
+    const order = reconciled.teams[team.id].profileOrder;
+    team.profiles.forEach((profile) => {
+      profile.slotIndex = order.indexOf(profile.id);
+      refreshedProfilesById.set(profile.id, { profile, team });
+    });
+  });
+  await Promise.all(refreshed.flatMap((team) => team.profiles.map(async (profile) => {
+    if (!profile.imageUrl || profile.imageElement) return;
+    const image = new Image();
+    image.decoding = "async";
+    image.src = profile.imageUrl;
+    try { await image.decode(); profile.imageElement = image; } catch { profile.imageElement = null; }
+  })));
+  refreshed.forEach((team) => { team.bitmap = createTeamBitmap(team); });
+  if (refreshVersion !== organizationRefreshVersion) return;
+  organization.companyName = normalizedOrganization.companyName;
+  organization.pageTitle = normalizedOrganization.pageTitle;
+  organization.teams = normalizedOrganization.teams;
+  organization.colleagues = normalizedOrganization.colleagues;
+  Object.keys(boardState).forEach((key) => delete boardState[key]);
+  Object.assign(boardState, reconciled);
+  renderedTeams.splice(0, renderedTeams.length, ...refreshed);
+  teamsById.clear();
+  refreshed.forEach((team) => teamsById.set(team.id, team));
+  profilesById.clear();
+  refreshedProfilesById.forEach((value, key) => profilesById.set(key, value));
+  brandCompany.textContent = organization.companyName;
+  brandSubtitle.textContent = `${organization.pageTitle} Editor`;
+  saveBoardState(boardState);
+  requestDraw();
+}
+
 function teamState(team) { return boardState.teams[team.id]; }
 function sceneScale() { return viewport.fitScale * camera.scale; }
+function targetSceneScale() { return viewport.fitScale * targetCamera.scale; }
 function sceneToScreenX(value) { return viewport.sceneLeft + camera.x + value * sceneScale(); }
 function sceneToScreenY(value) { return viewport.sceneTop + camera.y + value * sceneScale(); }
+function sceneToTargetScreenX(value) { return viewport.sceneLeft + targetCamera.x + value * targetSceneScale(); }
+function sceneToTargetScreenY(value) { return viewport.sceneTop + targetCamera.y + value * targetSceneScale(); }
 function screenToSceneX(value) { return (value - viewport.sceneLeft - camera.x) / sceneScale(); }
 function screenToSceneY(value) { return (value - viewport.sceneTop - camera.y) / sceneScale(); }
 function visibleCircle(x, y, radius) {
@@ -216,7 +297,7 @@ function profileWorldPosition(team, profile) {
 }
 
 function focusColleague(personId, focusScale = .5) {
-  if (isEditor) return;
+  if (editActive) return;
   const source = profilesById.get(personId);
   if (!source || !teamState(source.team).placed) return;
   const position = profileWorldPosition(source.team, source.profile);
@@ -231,7 +312,7 @@ function focusColleague(personId, focusScale = .5) {
     Math.min(44, viewport.height * .048);
   targetCamera.x = focusX - viewport.sceneLeft - position.x * scale;
   targetCamera.y = focusY - viewport.sceneTop - position.y * scale;
-  cameraEase = .17;
+  cameraEase = .105;
   requestDraw();
 }
 
@@ -241,14 +322,35 @@ function publishSelectedProfilePosition() {
   const source = profilesById.get(popupProfileId);
   if (!source || !teamState(source.team).placed) return;
   const position = profileWorldPosition(source.team, source.profile);
+  const contentCenter = placedContentCenter();
   dispatchEvent(new CustomEvent("boatboard:profile-position", {
     detail: {
       personId: popupProfileId,
       x: sceneToScreenX(position.x),
       y: sceneToScreenY(position.y),
       radius: profileLayoutConfig.profileDiameter / 2 * sceneScale(),
+      contentCenterX: sceneToScreenX(contentCenter.x),
+      contentCenterY: sceneToScreenY(contentCenter.y),
+      targetX: sceneToTargetScreenX(position.x),
+      targetY: sceneToTargetScreenY(position.y),
+      targetContentCenterX: sceneToTargetScreenX(contentCenter.x),
+      targetContentCenterY: sceneToTargetScreenY(contentCenter.y),
     },
   }));
+}
+
+function placedContentCenter() {
+  const placed = renderedTeams.filter((team) => teamState(team).placed);
+  if (placed.length === 0) return { x: logicalSceneSize / 2, y: logicalSceneSize / 2 };
+  const bounds = placed.reduce((result, team) => {
+    const state = teamState(team);
+    result.left = Math.min(result.left, state.x - team.radius);
+    result.right = Math.max(result.right, state.x + team.radius);
+    result.top = Math.min(result.top, state.y - team.radius);
+    result.bottom = Math.max(result.bottom, state.y + team.radius);
+    return result;
+  }, { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
+  return { x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 };
 }
 
 function drawSelectedProfileRing() {
@@ -264,6 +366,36 @@ function drawSelectedProfileRing() {
   context.lineWidth = 4;
   context.stroke();
   context.restore();
+}
+
+function drawSelectedTeamRing() {
+  if (!selectedTeamId || !document.querySelector(".team-popup.is-open:not(.popup-outgoing)")) return;
+  const team = teamsById.get(selectedTeamId);
+  if (!team || !teamState(team).placed) return;
+  const state = teamState(team);
+  context.save();
+  context.beginPath();
+  context.arc(sceneToScreenX(state.x), sceneToScreenY(state.y), team.radius * sceneScale() + 7, 0, Math.PI * 2);
+  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.lineWidth = 4;
+  context.stroke();
+  context.restore();
+}
+
+function publishSelectedTeamPosition() {
+  if (!selectedTeamId) return;
+  const team = teamsById.get(selectedTeamId);
+  if (!team || !teamState(team).placed) return;
+  const state = teamState(team);
+  const contentCenter = placedContentCenter();
+  dispatchEvent(new CustomEvent("boatboard:team-position", { detail: {
+    teamId: team.id,
+    x: sceneToScreenX(state.x),
+    y: sceneToScreenY(state.y),
+    radius: team.radius * sceneScale() + 8,
+    contentCenterX: sceneToScreenX(contentCenter.x),
+    contentCenterY: sceneToScreenY(contentCenter.y),
+  } }));
 }
 
 function drawLineBetweenProfileAndTeam(sourceTeam, profile, targetTeam) {
@@ -379,7 +511,7 @@ function rotationHandlePosition(team) {
 }
 
 function drawRotationHandles() {
-  if (!isEditor) return;
+  if (!editActive) return;
   context.save();
   context.lineCap = "round";
   context.lineJoin = "round";
@@ -458,7 +590,9 @@ function drawScene() {
     });
   }
   drawRotationHandles();
-  if (!isEditor) drawSelectedProfileRing();
+  drawSelectedTeamRing();
+  drawSelectedProfileRing();
+  publishSelectedTeamPosition();
   publishSelectedProfilePosition();
   if (!interaction && cameraDifference > .0001) requestDraw();
 }
@@ -499,14 +633,14 @@ function teamAt(x, y) {
   const sceneY = screenToSceneY(y);
   return [...renderedTeams].reverse().find((team) => {
     const state = teamState(team);
-    return state.placed && Math.hypot(sceneX - state.x, sceneY - state.y) <= team.radius;
+    return state.placed && Math.hypot(sceneX - state.x, sceneY - state.y) <= team.radius + 12 / sceneScale();
   }) ?? null;
 }
 
 function profileAt(x, y) {
   const sceneX = screenToSceneX(x);
   const sceneY = screenToSceneY(y);
-  const profileRadius = profileLayoutConfig.profileDiameter / 2;
+  const profileRadius = profileLayoutConfig.profileDiameter / 2 + 10 / sceneScale();
   for (const team of [...renderedTeams].reverse()) {
     const state = teamState(team);
     if (!state.placed) continue;
@@ -521,7 +655,7 @@ function profileAt(x, y) {
 }
 
 function rotationHandleAt(x, y) {
-  if (!isEditor) return null;
+  if (!editActive) return null;
   return [...renderedTeams].reverse().find((team) => {
     const state = teamState(team);
     if (!state.placed) return false;
@@ -532,6 +666,7 @@ function rotationHandleAt(x, y) {
 
 function persistBoard() {
   saveBoardState(boardState);
+  dispatchEvent(new CustomEvent("boatboard:board-changed", { detail: { boardState: structuredClone(boardState) } }));
   requestDraw();
 }
 
@@ -554,46 +689,11 @@ function finishProfileReorder(commit) {
   requestDraw();
 }
 
-function renderUnplacedTeams() {
-  if (!isEditor || !unplacedList) return;
-  unplacedList.replaceChildren();
-  renderedTeams.filter((team) => !teamState(team).placed).forEach((team) => {
-    const item = document.createElement("div");
-    item.className = "tray-team";
-    item.dataset.teamId = team.id;
-    item.title = `Drag ${team.name} onto the board`;
-    const label = document.createElement("span");
-    label.textContent = team.name;
-    item.append(label);
-    item.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      const ghost = document.createElement("div");
-      ghost.className = "tray-bubble-ghost";
-      const previewScale = 84 / (team.radius * 2);
-      team.profiles.forEach((profile) => {
-        const position = profileSlotPosition(team, profile);
-        const dot = document.createElement("span");
-        dot.style.left = `${48 + position.x * previewScale}px`;
-        dot.style.top = `${48 + position.y * previewScale}px`;
-        dot.style.background = `linear-gradient(145deg, ${profile.colors[0]}, ${profile.colors[1]})`;
-        ghost.append(dot);
-      });
-      document.body.append(ghost);
-      interaction = { type: "tray", pointerId: event.pointerId, team, ghost };
-      ghost.style.transform = `translate(${event.clientX - 48}px, ${event.clientY - 48}px)`;
-      item.setPointerCapture(event.pointerId);
-    });
-    unplacedList.append(item);
-  });
-  unplacedList.classList.toggle("is-empty", unplacedList.children.length === 0);
-}
-
 brandCompany.textContent = organization.companyName;
-brandSubtitle.textContent = isEditor ? `${organization.pageTitle} Editor` : organization.pageTitle;
+brandSubtitle.textContent = isEditorPage ? `${organization.pageTitle} Editor` : organization.pageTitle;
 resizeCanvas();
 addEventListener("resize", resizeCanvas);
-if (!isEditor) {
+{
   addEventListener("boatboard:select-colleague", (event) => {
     selectedProfileId = event.detail?.personId ?? null;
     previewProfileId = null;
@@ -610,6 +710,38 @@ if (!isEditor) {
     if (event.key === boardStateStorageKey) location.reload();
   });
 }
+addEventListener("boatboard:select-team", (event) => { selectedTeamId = event.detail?.teamId ?? null; requestDraw(); });
+addEventListener("boatboard:close-team", () => { selectedTeamId = null; requestDraw(); });
+addEventListener("boatboard:refresh-popup-positions", requestDraw);
+addEventListener("boatboard:enter-edit-mode", () => {
+  editActive = true;
+  clearProfileHover();
+  selectedProfileId = null;
+  selectedTeamId = null;
+  board.classList.remove("is-team-hover", "is-profile-hover");
+  requestDraw();
+});
+addEventListener("boatboard:exit-edit-mode", () => {
+  editActive = false;
+  interaction = null;
+  board.classList.remove("is-rotating", "is-rotation-hover", "is-panning");
+  requestDraw();
+});
+addEventListener("boatboard:ensure-popup-visible", (event) => {
+  const dx = Number(event.detail?.dx) || 0;
+  const dy = Number(event.detail?.dy) || 0;
+  if (!dx && !dy) return;
+  targetCamera.x = camera.x + dx;
+  targetCamera.y = camera.y + dy;
+  targetCamera.scale = camera.scale;
+  cameraEase = .17;
+  requestDraw();
+});
+if (isEditorPage) {
+  addEventListener("boatboard:organization-changed", (event) => {
+    if (event.detail?.organization) refreshOrganization(event.detail.organization);
+  });
+}
 
 function clearProfileHover() {
   clearTimeout(hoverTimer);
@@ -623,8 +755,9 @@ function clearProfileHover() {
   }
 }
 
-if (!isEditor) {
+{
   board.addEventListener("pointermove", (event) => {
+    if (editActive) return;
     if (interaction || event.target.closest(".viewer-search, .profile-popup-close")) {
       clearProfileHover();
       return;
@@ -633,6 +766,7 @@ if (!isEditor) {
     const hovered = profileAt(pointer.x, pointer.y);
     const personId = hovered?.profile.id ?? null;
     board.classList.toggle("is-profile-hover", Boolean(personId));
+    board.classList.toggle("is-team-hover", !personId && Boolean(teamAt(pointer.x, pointer.y)));
     if (selectedProfileId) {
       clearTimeout(hoverTimer);
       hoverTimer = null;
@@ -657,27 +791,59 @@ if (!isEditor) {
       requestDraw();
     }, 400);
   });
-  board.addEventListener("pointerleave", clearProfileHover);
+  board.addEventListener("pointerleave", () => { clearProfileHover(); board.classList.remove("is-team-hover"); });
 }
-if (isEditor) {
+if (isEditorPage) {
   board.addEventListener("pointermove", (event) => {
+    if (!editActive) return;
     if (interaction) return;
     const pointer = localPointer(event);
-    board.classList.toggle("is-rotation-hover", Boolean(rotationHandleAt(pointer.x, pointer.y)));
+    const rotationTeam = rotationHandleAt(pointer.x, pointer.y);
+    board.classList.toggle("is-rotation-hover", Boolean(rotationTeam));
+    board.classList.toggle("is-profile-hover", !rotationTeam && Boolean(profileAt(pointer.x, pointer.y)));
   });
-  board.addEventListener("pointerleave", () => board.classList.remove("is-rotation-hover"));
+  board.addEventListener("pointerleave", () => board.classList.remove("is-rotation-hover", "is-profile-hover"));
   saveBoardState(boardState);
-  renderUnplacedTeams();
-  panelToggle.addEventListener("click", () => {
-    const collapsed = editorPanel.classList.toggle("is-collapsed");
-    panelToggle.setAttribute("aria-expanded", String(!collapsed));
-    panelToggle.setAttribute("aria-label", collapsed ? "Show teams panel" : "Hide teams panel");
+  addEventListener("boatboard:tray-drag-start", (event) => {
+    const team = teamsById.get(event.detail?.teamId);
+    if (team) {
+      const ghost = document.createElement("div");
+      ghost.className = "tray-bubble-ghost";
+      document.body.append(ghost);
+      interaction = { type: "native-tray", team, ghost };
+    }
+  });
+  addEventListener("boatboard:tray-drag-move", (event) => {
+    if (interaction?.type !== "native-tray") return;
+    interaction.ghost.style.left = `${event.detail.x}px`;
+    interaction.ghost.style.top = `${event.detail.y}px`;
+  });
+  addEventListener("boatboard:tray-drag-end", () => {
+    if (interaction?.type === "native-tray") { interaction.ghost.remove(); interaction = null; }
+  });
+  board.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer.types.includes("application/x-boatboard-team")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  board.addEventListener("drop", (event) => {
+    const team = teamsById.get(event.dataTransfer.getData("application/x-boatboard-team"));
+    if (!team) return;
+    event.preventDefault();
+    const pointer = localPointer(event);
+    const state = teamState(team);
+    state.x = screenToSceneX(pointer.x);
+    state.y = screenToSceneY(pointer.y);
+    state.placed = true;
+    interaction?.ghost?.remove();
+    interaction = null;
+    persistBoard();
   });
 }
 
 board.addEventListener("wheel", (event) => {
   event.preventDefault();
-  if (!isEditor) clearProfileHover();
+  if (!editActive) clearProfileHover();
   const pointer = localPointer(event);
   const deltaMultiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.height : 1;
   const normalizedDelta = Math.max(-120, Math.min(120, event.deltaY * deltaMultiplier));
@@ -695,20 +861,20 @@ board.addEventListener("wheel", (event) => {
 board.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   const pointer = localPointer(event);
-  const clickedViewerProfile = isEditor ? null : profileAt(pointer.x, pointer.y);
-  if (!isEditor && clickedViewerProfile?.profile.id === previewProfileId) {
+  const clickedViewerProfile = profileAt(pointer.x, pointer.y);
+  if (!editActive && clickedViewerProfile?.profile.id === previewProfileId) {
     clearTimeout(hoverTimer);
     hoverTimer = null;
     hoverCandidateId = null;
-  } else if (!isEditor) clearProfileHover();
+  } else if (!editActive) clearProfileHover();
   cameraEase = .24;
   targetCamera.scale = camera.scale;
   targetCamera.x = camera.x;
   targetCamera.y = camera.y;
-  if (isEditor) {
+  if (editActive) {
     const source = profileAt(pointer.x, pointer.y);
     if (source) {
-      interaction = { type: "connection", pointerId: event.pointerId, pointerX: pointer.x, pointerY: pointer.y, source, targetTeamId: null };
+      interaction = { type: "connection", pointerId: event.pointerId, pointerX: pointer.x, pointerY: pointer.y, startX: pointer.x, startY: pointer.y, moved: false, source, targetTeamId: null };
     } else {
       const rotationTeam = rotationHandleAt(pointer.x, pointer.y);
       if (rotationTeam) {
@@ -730,6 +896,7 @@ board.addEventListener("pointerdown", (event) => {
     interaction = {
       type: "pan", pointerId: event.pointerId, pointerX: event.clientX, pointerY: event.clientY,
       x: camera.x, y: camera.y, moved: false, clickProfile: clickedViewerProfile,
+      clickTeam: clickedViewerProfile ? null : teamAt(pointer.x, pointer.y),
     };
     board.classList.add("is-panning");
   }
@@ -779,6 +946,7 @@ addEventListener("pointermove", (event) => {
     teamState(interaction.team).rotation = ((snapped % 360) + 360) % 360;
   } else if (interaction.type === "connection") {
     const pointer = localPointer(event);
+    interaction.moved ||= Math.hypot(pointer.x - interaction.startX, pointer.y - interaction.startY) > 4;
     interaction.pointerX = pointer.x;
     interaction.pointerY = pointer.y;
     const target = teamAt(pointer.x, pointer.y);
@@ -803,34 +971,28 @@ function stopInteraction(event) {
         y: pointer.y,
       },
     }));
+  } else if (event.type === "pointerup" && completed.type === "pan" && !completed.moved && completed.clickTeam) {
+    dispatchEvent(new CustomEvent("boatboard:select-team", { detail: { teamId: completed.clickTeam.id, source: "canvas" } }));
+  } else if (event.type === "pointerup" && completed.type === "connection" && !completed.moved) {
+    const pointer = localPointer(event);
+    dispatchEvent(new CustomEvent("boatboard:select-colleague", {
+      detail: { personId: completed.source.profile.id, placement: "auto", source: "canvas", x: pointer.x, y: pointer.y },
+    }));
   } else if (event.type === "pointerup" && completed.type === "connection" && completed.targetTeamId) {
     boardState.teams[completed.targetTeamId].leaderId = completed.source.profile.id;
     persistBoard();
+  } else if (event.type === "pointerup" && completed.type === "team" && Math.hypot(event.clientX - completed.pointerX, event.clientY - completed.pointerY) <= 3) {
+    dispatchEvent(new CustomEvent("boatboard:select-team", { detail: { teamId: completed.team.id, source: "canvas" } }));
   } else if (completed.type === "team") {
     const panelBounds = editorPanel?.getBoundingClientRect();
     if (panelBounds && event.clientX >= panelBounds.left && event.clientX <= panelBounds.right &&
         event.clientY >= panelBounds.top && event.clientY <= panelBounds.bottom) {
       teamState(completed.team).placed = false;
-      renderUnplacedTeams();
     }
     persistBoard();
   } else if (completed.type === "rotation") {
     completed.team.bitmap = createTeamBitmap(completed.team);
     persistBoard();
-  } else if (completed.type === "tray") {
-    completed.ghost.remove();
-    const boardBounds = board.getBoundingClientRect();
-    const droppedOnBoard = event.clientX >= boardBounds.left && event.clientX <= boardBounds.right &&
-      event.clientY >= boardBounds.top && event.clientY <= boardBounds.bottom;
-    if (droppedOnBoard) {
-      const pointer = localPointer(event);
-      const state = teamState(completed.team);
-      state.x = screenToSceneX(pointer.x);
-      state.y = screenToSceneY(pointer.y);
-      state.placed = true;
-      persistBoard();
-      renderUnplacedTeams();
-    }
   }
   interaction = null;
   board.classList.remove("is-panning");
@@ -841,8 +1003,9 @@ function stopInteraction(event) {
 
 addEventListener("pointerup", stopInteraction);
 addEventListener("pointercancel", stopInteraction);
-if (isEditor) {
+if (isEditorPage) {
   board.addEventListener("contextmenu", (event) => {
+    if (!editActive) return;
     event.preventDefault();
     if (ignoreNextContextMenu) {
       ignoreNextContextMenu = false;
@@ -873,13 +1036,6 @@ if (isEditor) {
     if (!team) return;
     teamState(team).placed = false;
     persistBoard();
-    renderUnplacedTeams();
   });
   addEventListener("keydown", () => finishProfileReorder(false));
 }
-board.addEventListener("dblclick", (event) => {
-  if (isEditor && (profileAt(localPointer(event).x, localPointer(event).y) || teamAt(localPointer(event).x, localPointer(event).y))) return;
-  Object.assign(camera, { scale: 1, x: 0, y: 0 });
-  Object.assign(targetCamera, camera);
-  requestDraw();
-});
