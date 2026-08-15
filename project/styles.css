@@ -243,7 +243,7 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
   transition: opacity .176s ease, transform .224s cubic-bezier(.18, .78, .2, 1), visibility 0s linear .224s;
   visibility: hidden;
   will-change: transform, opacity;
-  width: min(45vh, 440px);
+  width: min(49vh, 480px);
   z-index: 13;
 }
 .team-popup[data-placement="bottom-right"] { translate: 0 0; }
@@ -264,15 +264,14 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
 .team-popup-description::-webkit-scrollbar, .team-popup-members::-webkit-scrollbar { display: none; }
 .team-popup-members-viewport { flex: 0 0 var(--team-member-viewport-height, 323px); height: var(--team-member-viewport-height, 323px); margin: 1.48rem -.28rem 0; min-height: 0; position: relative; }
 .team-popup-members { display: grid; gap: .18rem .3rem; grid-auto-rows: 52px; grid-template-columns: repeat(2, minmax(0, 1fr)); height: 100%; min-height: 0; overflow-y: auto; padding: 0 .02rem .3rem; scrollbar-width: none; }
-.team-popup-member { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 8px; color: rgba(218, 228, 232, .82); cursor: pointer; display: flex; gap: .48rem; min-width: 0; overflow: hidden; padding: .28rem .22rem; position: relative; text-align: left; }
+.team-popup-member { align-items: center; background: transparent; border: 1px solid transparent; border-radius: 8px; color: rgba(218, 228, 232, .82); cursor: pointer; display: flex; gap: .7rem; min-width: 0; overflow: hidden; padding: .28rem .22rem; position: relative; text-align: left; }
 .team-popup-member:hover { border-color: rgba(151, 178, 190, .2); }
 .team-popup-avatar { align-items: center; background: linear-gradient(145deg, var(--avatar-light), var(--avatar-dark)); border: 1px solid rgba(13, 21, 26, .9); border-radius: 50%; color: rgba(255,255,255,.92); display: flex; flex: 0 0 38px; font-size: .64rem; font-weight: 750; height: 38px; justify-content: center; overflow: hidden; width: 38px; }
 .team-popup-avatar img { height: 100%; object-fit: cover; width: 100%; }
 .team-popup-member-name { -webkit-box-orient: vertical; -webkit-line-clamp: 2; box-sizing: border-box; display: -webkit-box; font-size: .86rem; line-height: 1.16; min-width: 0; overflow: hidden; overflow-wrap: anywhere; padding-right: .14rem; text-overflow: ellipsis; }
-.team-popup-leader-spacer { grid-column: 2; }
 .team-popup-leader-cell { grid-column: 1; min-width: 0; position: relative; }
 .team-popup-leader-cell .team-popup-member { height: 100%; width: 100%; }
-.team-popup-leader-cell small { bottom: -.08rem; color: rgba(190, 205, 211, .34); font-size: clamp(.69rem, 1.1vh, .79rem); line-height: 1.3; pointer-events: none; position: absolute; right: -.24rem; text-align: right; }
+.team-popup-leader-label { align-self: end; color: rgba(190, 205, 211, .34); font-size: clamp(.69rem, 1.1vh, .79rem); grid-column: 2; justify-self: start; line-height: 1.3; margin: 0 0 .18rem .22rem; pointer-events: none; }
 .team-popup-description::-webkit-scrollbar { display: none; }
 .popup-outgoing { pointer-events: none !important; transition-duration: .28s, .35s, .35s !important; z-index: 11 !important; }
 .profile-popup:not(.popup-outgoing), .team-popup:not(.popup-outgoing) { z-index: 15; }

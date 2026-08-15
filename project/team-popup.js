@@ -85,17 +85,13 @@ function renderTeam(teamId) {
   teamMembers.forEach((person) => members.append(createMember(person)));
   const leader = peopleById.get(boardState?.teams?.[teamId]?.leaderId);
   if (leader) {
-    if (teamMembers.length % 2 === 1) {
-      const spacer = document.createElement("span");
-      spacer.className = "team-popup-leader-spacer";
-      members.append(spacer);
-    }
     const leaderCell = document.createElement("div");
     leaderCell.className = "team-popup-leader-cell";
     const label = document.createElement("small");
+    label.className = "team-popup-leader-label";
     label.textContent = "Líder";
-    leaderCell.append(createMember(leader), label);
-    members.append(leaderCell);
+    leaderCell.append(createMember(leader));
+    members.append(leaderCell, label);
   }
   const totalRows = Math.ceil(teamMembers.length / 2) + (leader ? 1 : 0);
   const visibleRows = Math.max(1, Math.min(6, totalRows));
@@ -213,6 +209,7 @@ function bestPlacement(x, y, radius, contentCenterX, contentCenterY, ignoreProfi
 function closePopup() {
   selectedTeamId = null;
   placementLocked = false;
+  delete popup.dataset.openOrder;
   animatePopupOut();
   popup.setAttribute("aria-hidden", "true");
   dispatchEvent(new CustomEvent("boatboard:close-team"));
@@ -228,6 +225,10 @@ if (popup) {
       popup.setAttribute("aria-hidden", "true");
     }
     selectedTeamId = teamId;
+    if (teamId) {
+      window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
+      popup.dataset.openOrder = String(window.boatboardUiLayerSequence);
+    }
     selectionSource = event.detail?.source ?? "canvas";
     requestExistingPopupMove = selectionSource === "profile-popup";
     if (teamId) renderTeam(teamId);

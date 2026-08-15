@@ -1,10 +1,31 @@
 # Delivery Process
 
-This template deliberately does not define a build, package, export, deployment, or release command. Those processes depend on the real project stack and must not be guessed.
+BoatBoard defines one owner-authorized preview delivery command: `localrelease`. It creates a clean portable folder for local MVP testing. It is not an installer, hosted deployment, versioned product release, or GitHub Release.
+
+## Local Preview (`localrelease`)
+
+Run from the repository root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Export-LocalRelease.ps1
+```
+
+- Inputs: current `project/` source excluding `project/private_instance/`, `scripts/boatboard_server.py`, `requirements.txt`, `requirements-build.txt`, and tracked files under `release/`.
+- Output: ignored `exports/BoatBoard-local/`; an existing folder at that exact path is replaced.
+- Prerequisites: JavaScript syntax checks, Python compilation, `git diff --check`, and a successful isolated empty-instance test.
+- Build bootstrap: when missing, the export script creates ignored `build/boatboard-packaging-venv/` and installs the pinned build requirements. A development machine needs Python 3.11+ and network access for this first bootstrap; `-PythonPath` can select a specific interpreter.
+- Runtime: PyInstaller bundles Python, the server, and `openpyxl` into `BoatBoard.exe`; the exported preview requires no separate Python installation or terminal.
+- Versioning: this preview is intentionally unversioned. Only the owner can authorize a future version or public release.
+- Secrets/signing/publishing: none. The command does not upload, sign, zip, deploy, or publish anything.
+- Privacy: the export must not contain `project/private_instance/`, credentials, real records, or real profile images.
+- Verification: start the exported executable on an unused port, confirm viewer/editor/API HTTP 200 responses, confirm the created instance has zero teams/colleagues, confirm `/private_instance/` is inaccessible, exercise the stop control, and inspect the generated file list.
+- Recovery: delete or regenerate only the ignored output folder. The command never modifies the active development instance.
+
+The resulting folder can be copied elsewhere. On first launch, it creates its own `project/private_instance/` from the clean tracked seed. `BoatBoard.exe` opens the viewer, `BoatBoard Editor.cmd` opens the editor, and `Stop BoatBoard.cmd` stops the hidden local server.
 
 ## Default Rule
 
-Do not create generated delivery artifacts, zip files, installers, deployments, releases, or publish actions unless the owner explicitly asks and the project has a documented process.
+Do not create other generated artifacts, installers, deployments, or public releases unless the owner explicitly asks and the relevant process is documented first.
 
 ## When A Project Needs Delivery
 

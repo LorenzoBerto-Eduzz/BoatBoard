@@ -1003,6 +1003,17 @@ function stopInteraction(event) {
 
 addEventListener("pointerup", stopInteraction);
 addEventListener("pointercancel", stopInteraction);
+addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const layers = [...document.querySelectorAll(
+    ".viewer-search.is-open, .profile-popup.is-open:not(.popup-outgoing), .team-popup.is-open:not(.popup-outgoing)",
+  )];
+  const latest = layers.sort((left, right) =>
+    Number(right.dataset.openOrder ?? 0) - Number(left.dataset.openOrder ?? 0))[0];
+  if (!latest) return;
+  event.preventDefault();
+  latest.querySelector(".viewer-search-close, .profile-popup-close, .team-popup-close")?.click();
+});
 if (isEditorPage) {
   board.addEventListener("contextmenu", (event) => {
     if (!editActive) return;

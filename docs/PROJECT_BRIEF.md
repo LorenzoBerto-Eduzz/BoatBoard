@@ -11,7 +11,7 @@ BoatBoard helps colleagues discover the organization by representing teams as bu
 
 ## Current Scope
 
-`index.html` is a read-only viewer with colleague/team search, smooth focus, hover preview, selection, and anchored colleague details. `editor.html` authors one private local instance, places and moves teams, rotates arrangements, assigns leaders, and swaps profile slots. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
+`index.html` is a read-only viewer with colleague search, smooth focus, hover preview, selection, and anchored colleague/team details. `editor.html` reuses the complete viewer and toggles local authoring for teams, colleagues, placement, arrangement rotation, leadership, and profile ordering. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
 
 ## Run And Validate
 
@@ -38,8 +38,8 @@ Viewer: `http://127.0.0.1:4173/`. Editor: `http://127.0.0.1:4173/editor.html`.
 
 ## Current Priority
 
-Finish the hosted/read-only viewer until it is final and presentable. Colleague search, focusing, selection, hover preview, and the profile information popup are implemented; team selection and the team information popup are next. Additional editor/import expansion follows later unless the owner redirects.
+Use the clean standalone local preview to build and present the MVP board, fixing presentation issues as they are found. After the technical-team review, decide private hosting, authentication, approved image storage, and the production data-ingestion adapter without rewriting the renderer or viewer.
 
 ## Delivery
 
-No delivery or release process exists. Versioning, packaging, hosting, and reusable GitHub releases remain owner-directed future work.
+`localrelease` creates an unversioned, ignored Windows preview for local MVP testing. It excludes the active private instance, bundles its Python runtime into `BoatBoard.exe`, selects an available localhost port, opens the browser automatically, and creates a clean instance on first launch. Installers, signing, hosting, versioning, and reusable GitHub Releases remain owner-directed future work.

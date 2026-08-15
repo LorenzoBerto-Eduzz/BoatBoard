@@ -213,6 +213,7 @@ if (popup) {
     pinnedPersonId = null;
     previewPersonId = null;
     placementLocked = false;
+    delete popup.dataset.openOrder;
     animatePopupOut();
     popup.setAttribute("aria-hidden", "true");
     dispatchEvent(new CustomEvent("boatboard:close-colleague"));
@@ -236,6 +237,10 @@ if (popup) {
     }
     pinnedPersonId = selectedPersonId;
     previewPersonId = null;
+    if (pinnedPersonId) {
+      window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
+      popup.dataset.openOrder = String(window.boatboardUiLayerSequence);
+    }
     if (!promotesPreview) {
       placement = event.detail?.placement === "auto"
         ? automaticPlacement(event.detail.x, event.detail.y)
@@ -252,6 +257,10 @@ if (popup) {
     if (document.body.classList.contains("editor-mode")) return;
     if (pinnedPersonId) return;
     previewPersonId = event.detail?.personId ?? null;
+    if (previewPersonId) {
+      window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
+      popup.dataset.openOrder = String(window.boatboardUiLayerSequence);
+    }
     placement = automaticPlacement(event.detail.x, event.detail.y);
     placementLocked = false;
     popup.dataset.placement = placement;
@@ -263,6 +272,7 @@ if (popup) {
   addEventListener("boatboard:preview-colleague-end", (event) => {
     if (pinnedPersonId || event.detail?.personId !== previewPersonId) return;
     previewPersonId = null;
+    delete popup.dataset.openOrder;
     animatePopupOut();
     popup.setAttribute("aria-hidden", "true");
   });

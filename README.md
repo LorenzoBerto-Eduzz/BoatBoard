@@ -11,6 +11,7 @@ The dependency-free application uses HTML, CSS, JavaScript modules, Canvas, and 
 Run from the repository root:
 
 ```powershell
+python -m pip install -r requirements.txt
 python scripts/boatboard_server.py
 ```
 
@@ -18,9 +19,9 @@ Open `http://127.0.0.1:4173/` for the viewer or `http://127.0.0.1:4173/editor.ht
 
 ## Data And Privacy
 
-The tracked `project/instance_template/` seeds an ignored `project/private_instance/`. One instance contains `boatboard.xlsx`, an `images/` folder, and `board.json`. Keep private records and images out of Git.
+The tracked `project/instance_template/` is a clean, empty seed. On first server start it creates the ignored `project/private_instance/`, containing `boatboard.xlsx`, an `images/` folder, and `board.json`. This directory is the complete local company instance; keep its private records and images out of Git.
 
-Bulk setup uses the workbook plus images whose filenames match the colleague rows. The Board Data editor autosaves local changes and can validate/activate a replacement workbook.
+For the current MVP, open the editor and create teams and colleagues manually. Changes to organization data and board layout autosave locally. Image filenames, descriptions, and contact fields remain available in the workbook data model, but they are optional and do not need to be populated during basic local setup. Bulk setup can use a compatible workbook plus images whose filenames match colleague rows.
 
 ## Repository Frame
 
@@ -34,9 +35,19 @@ BoatBoard/
   scripts/        local server and future repeatable automation
 ```
 
+## Standalone Local Preview
+
+Generate the clean Windows MVP folder with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Export-LocalRelease.ps1
+```
+
+The ignored output is `exports/BoatBoard-local/`. It contains a self-contained `BoatBoard.exe`, editor launcher, stop control, application files, and an empty first-run seed. End users do not need Python. The build command prepares an ignored PyInstaller environment automatically when a suitable development Python is available.
+
 ## AI Workflow
 
 - `memcheck`: update durable project memory without committing.
 - `gitcheck`: perform `memcheck`, review and validate changes, verify Git identity, commit, and push when a remote exists.
 
-No delivery, release, or deployment process is established. Do not package, publish, or deploy without owner approval.
+`localrelease` is an unversioned local MVP preview only. No installer, GitHub Release, hosted deployment, authentication, or production data integration is established yet.

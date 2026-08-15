@@ -74,6 +74,8 @@ if (search) {
   }
 
   function openSearch() {
+    window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
+    search.dataset.openOrder = String(window.boatboardUiLayerSequence);
     search.classList.add("is-open");
     toggle.setAttribute("aria-expanded", "true");
     panel.setAttribute("aria-hidden", "false");
@@ -96,6 +98,7 @@ if (search) {
   }
 
   function closeSearch() {
+    delete search.dataset.openOrder;
     search.classList.remove("is-open");
     toggle.setAttribute("aria-expanded", "false");
     panel.setAttribute("aria-hidden", "true");
@@ -106,9 +109,6 @@ if (search) {
   toggle.addEventListener("click", openSearch);
   closeButton.addEventListener("click", closeSearch);
   input.addEventListener("input", filterResults);
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeSearch();
-  });
   addEventListener("boatboard:enter-edit-mode", closeSearch);
   search.addEventListener("pointerdown", (event) => event.stopPropagation());
   search.addEventListener("dblclick", (event) => event.stopPropagation());

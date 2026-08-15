@@ -7,18 +7,18 @@ This is the portable continuity snapshot for BoatBoard. The repository, not prio
 - Source: `project/`; stack: dependency-free HTML, CSS, JavaScript modules, Canvas, and a small Python local file server.
 - Run `python scripts/boatboard_server.py`, then open `http://127.0.0.1:4173/` or `/editor.html`. Direct `file://` opening cannot use the instance APIs.
 - `index.html` is the read-only viewer intended to become the hosted/presentable experience. `editor.html` is the local authoring interface.
-- No build, package, deployment, release, or hosting process exists. The source repository is backed up to GitHub, but no downloadable release exists yet.
+- `localrelease` creates the ignored unversioned preview at `exports/BoatBoard-local/`; it contains the app, empty seed, standalone Windows executable, editor launcher, and stop control, but no private instance. The executable bundles Python and `openpyxl`, selects a free localhost port, and opens the browser automatically. `requirements-build.txt` and the export script reproducibly bootstrap the ignored PyInstaller environment. No installer, hosted deployment, versioned product release, or GitHub Release exists yet.
 - Never commit real company records or profile images.
 
 ## Private Instance
 
-The tracked reusable seed is `project/instance_template/`. The active ignored instance is fully contained in `project/private_instance/`:
+The tracked reusable seed is `project/instance_template/` and contains an empty workbook, empty board state, and empty images directory. On first server start it creates the active ignored instance, fully contained in `project/private_instance/`:
 
 - `boatboard.xlsx`: company/page values, teams, colleagues, membership, image filenames, role, and notes.
 - `images/`: actual profile-image files referenced by workbook filename.
 - `board.json`: placed state, coordinates, leaders, per-team profile order, and arrangement rotation.
 
-Tracked application defaults and the seed workbook must remain generic (`BoatBoard`/example records). Company-specific titles, records, layouts, and profile images belong only in the ignored active instance.
+Tracked application defaults and the seed workbook must remain generic and empty (`BoatBoard`, no teams or colleagues). Company-specific titles, records, layouts, and profile images belong only in the ignored active instance.
 
 `scripts/boatboard_server.py` creates missing instance files and exposes local APIs for organization data, board state, images, workbook replacement, and opening the instance folder. Workbook replacement is validated and backed up. Stable IDs preserve compatible layout/order/connections; obsolete state is removed and new teams remain unplaced. The browser retains a localStorage fallback for board state.
 
@@ -56,9 +56,9 @@ Tracked application defaults and the seed workbook must remain generic (`BoatBoa
 
 ## Next Work
 
-Continue filling and polishing the team information experience, including final production fields/actions, then finish remaining hover/search/presentation behavior until the viewer is final and presentable. Defer production data ingestion and broader editor expansion until after that viewer phase unless the owner redirects.
+Use the clean standalone preview to build and present the local MVP board, fixing realistic presentation issues as they are found. Basic manual team/colleague editing is sufficient for this phase; image upload and description/contact authoring UI are intentionally deferred.
 
-Later work includes a reusable GitHub release, hosting, authentication/authorization, company-approved private deployment, and production data integration. Do not pre-empt those decisions.
+After the technical-team review, align on company-approved private hosting, authentication, image storage, and the production data pipeline (for example approved Forms/Sheets/HR inputs feeding a validated API). Preserve the replaceable data adapter so those decisions do not require rewriting the viewer. A versioned reusable GitHub Release remains later work.
 
 ## Validation
 
@@ -72,6 +72,7 @@ node --check project/data/board-state.js
 node --check project/data/organization-source.js
 node --check project/layout/profile-arrangements.js
 python -m py_compile scripts/boatboard_server.py
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Export-LocalRelease.ps1
 git diff --check
 ```
 

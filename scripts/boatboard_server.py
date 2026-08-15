@@ -4,22 +4,28 @@ import json
 import base64
 import gc
 import mimetypes
+import os
 import shutil
 import subprocess
+import sys
 import uuid
+import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.request import urlopen
 from urllib.parse import urlparse
 
 from openpyxl import load_workbook
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
 PROJECT = ROOT / "project"
 TEMPLATE = PROJECT / "instance_template" / "boatboard.xlsx"
+BOARD_TEMPLATE = PROJECT / "instance_template" / "board.json"
 INSTANCE = PROJECT / "private_instance"
 WORKBOOK = INSTANCE / "boatboard.xlsx"
 BOARD = INSTANCE / "board.json"
 IMAGES = INSTANCE / "images"
+SERVER_STATE = INSTANCE / "server.json"
 
 
 def ensure_instance() -> None:
@@ -28,7 +34,7 @@ def ensure_instance() -> None:
     if not WORKBOOK.exists():
         shutil.copy2(TEMPLATE, WORKBOOK)
     if not BOARD.exists():
-        BOARD.write_text('{"version":1,"teams":{}}\n', encoding="utf-8")
+        shutil.copy2(BOARD_TEMPLATE, BOARD)
 
 
 def rows_by_header(sheet, header_row: int = 3) -> list[dict[str, object]]:
@@ -184,6 +190,10 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PROJECT), **kwargs)
 
+    def log_message(self, format: str, *args: object) -> None:
+        # The packaged Windows app intentionally has no console stream.
+        return
+
     def send_json(self, payload: object, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -196,6 +206,9 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         try:
+            if path == "/api/health":
+                self.send_json({"app": "BoatBoard", "instance": str(INSTANCE.resolve()), "pid": os.getpid()})
+                return
             if path == "/api/organization":
                 self.send_json(read_organization())
                 return
@@ -215,6 +228,9 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
                 self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(content)
+                return
+            if path == "/private_instance" or path.startswith("/private_instance/"):
+                self.send_error(404)
                 return
             super().do_GET()
         except Exception as error:
@@ -277,9 +293,47 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": str(error)}, 400)
 
 
+def open_existing_server(page: str) -> bool:
+    try:
+        state = json.loads(SERVER_STATE.read_text(encoding="utf-8"))
+        port = int(state["port"])
+        with urlopen(f"http://127.0.0.1:{port}/api/health", timeout=.6) as response:
+            health = json.loads(response.read().decode("utf-8"))
+        if health.get("app") != "BoatBoard" or health.get("instance") != str(INSTANCE.resolve()):
+            return False
+        webbrowser.open(f"http://127.0.0.1:{port}{page}")
+        return True
+    except Exception:
+        return False
+
+
+def create_server(preferred_port: int) -> tuple[ThreadingHTTPServer, int]:
+    for port in range(preferred_port, preferred_port + 50):
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", port), BoatBoardHandler), port
+        except OSError:
+            continue
+    raise RuntimeError("BoatBoard could not find an available local port.")
+
+
 if __name__ == "__main__":
     ensure_instance()
-    server = ThreadingHTTPServer(("127.0.0.1", 4173), BoatBoardHandler)
-    print("BoatBoard: http://127.0.0.1:4173/")
-    print("Editor:    http://127.0.0.1:4173/editor.html")
-    server.serve_forever()
+    requested_page = "/editor.html" if "--editor" in sys.argv else "/"
+    if open_existing_server(requested_page):
+        raise SystemExit(0)
+    preferred_port = int(os.environ.get("BOATBOARD_PORT", "4173"))
+    server, port = create_server(preferred_port)
+    SERVER_STATE.write_text(json.dumps({"pid": os.getpid(), "port": port}, indent=2) + "\n", encoding="utf-8")
+    print(f"BoatBoard: http://127.0.0.1:{port}/")
+    print(f"Editor:    http://127.0.0.1:{port}/editor.html")
+    if "--no-browser" not in sys.argv:
+        webbrowser.open(f"http://127.0.0.1:{port}{requested_page}")
+    try:
+        server.serve_forever()
+    finally:
+        try:
+            state = json.loads(SERVER_STATE.read_text(encoding="utf-8"))
+            if state.get("pid") == os.getpid():
+                SERVER_STATE.unlink(missing_ok=True)
+        except Exception:
+            pass
