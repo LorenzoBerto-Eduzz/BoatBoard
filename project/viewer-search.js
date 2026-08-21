@@ -1,4 +1,5 @@
 import { loadOrganization } from "./data/organization-source.js?v=boatboard-20260809-63";
+import { loadBoardState } from "./data/board-state.js?v=boatboard-20260811-108";
 
 const search = document.querySelector(".viewer-search");
 const toggle = search?.querySelector(".viewer-search-toggle");
@@ -9,6 +10,7 @@ const results = search?.querySelector(".viewer-search-results");
 
 if (search) {
   const organization = await loadOrganization();
+  let boardState = await loadBoardState();
   const teamsById = new Map(organization.teams.map((team) => [team.id, team]));
   const normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
   const initials = (name) => name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -39,6 +41,7 @@ if (search) {
       row.className = "viewer-search-result";
       row.type = "button";
       row.role = "listitem";
+      row.dataset.teamId = person.teamId;
       row.dataset.searchTerms = normalize(`${person.name} ${teamName}`);
       const name = document.createElement("span");
       name.className = "viewer-search-name";
@@ -61,17 +64,24 @@ if (search) {
   function filterResults() {
     const query = normalize(input.value.trim());
     results.querySelectorAll(".viewer-search-result").forEach((row) => {
-      const hidden = !row.dataset.searchTerms.includes(query);
+      const teamIsPlaced = boardState?.teams?.[row.dataset.teamId]?.placed === true;
+      const hidden = !teamIsPlaced || !row.dataset.searchTerms.includes(query);
       clearTimeout(row.filterTimer);
       if (hidden) {
+        row.setAttribute("aria-hidden", "true");
+        row.tabIndex = -1;
         row.classList.add("is-filtered-out");
         row.filterTimer = setTimeout(() => row.classList.add("is-collapsed"), 120);
       } else {
+        row.removeAttribute("aria-hidden");
+        row.tabIndex = 0;
         row.classList.remove("is-collapsed");
         requestAnimationFrame(() => row.classList.remove("is-filtered-out"));
       }
     });
   }
+
+  filterResults();
 
   function openSearch() {
     window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
@@ -109,6 +119,11 @@ if (search) {
   toggle.addEventListener("click", openSearch);
   closeButton.addEventListener("click", closeSearch);
   input.addEventListener("input", filterResults);
+  addEventListener("boatboard:board-changed", (event) => {
+    if (!event.detail?.boardState) return;
+    boardState = event.detail.boardState;
+    filterResults();
+  });
   addEventListener("boatboard:enter-edit-mode", closeSearch);
   search.addEventListener("pointerdown", (event) => event.stopPropagation());
   search.addEventListener("dblclick", (event) => event.stopPropagation());

@@ -38,7 +38,7 @@ Viewer: `http://127.0.0.1:4173/`. Editor: `http://127.0.0.1:4173/editor.html`.
 
 ## Current Priority
 
-Use the clean standalone local preview to build and present the MVP board, fixing presentation issues as they are found. After the technical-team review, decide private hosting, authentication, approved image storage, and the production data-ingestion adapter without rewriting the renderer or viewer.
+The local MVP has been presented to the technical team. Continue fine viewer/editor usability work in the project and periodically regenerate the standalone preview. Before deployment, confirm private hosting, authentication/authorization, authoritative organization data, approved image storage, refresh/ingestion behavior, and administrative ownership; implement those decisions through the replaceable data and delivery boundaries without rewriting the renderer or viewer.
 
 ## Delivery
 

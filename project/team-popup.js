@@ -95,7 +95,7 @@ function renderTeam(teamId) {
   }
   const totalRows = Math.ceil(teamMembers.length / 2) + (leader ? 1 : 0);
   const visibleRows = Math.max(1, Math.min(6, totalRows));
-  const viewportHeight = (visibleRows + 1 / 3) * 52 + visibleRows * 2.88;
+  const viewportHeight = (visibleRows + .75) * 52 + visibleRows * 2.88;
   membersViewport.style.setProperty("--team-member-viewport-height", `${viewportHeight}px`);
   membersViewport.append(members);
   content.append(title, membersViewport, description);
