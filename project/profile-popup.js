@@ -1,5 +1,7 @@
 import { loadOrganization } from "./data/organization-source.js?v=boatboard-20260809-79";
 import { loadBoardState } from "./data/board-state.js?v=boatboard-20260811-108";
+import { popupViewportCorrection } from "./popup-visibility.js?v=boatboard-20260822-170";
+import { compactPopupLayoutMedia, compactTouchUiMedia } from "./responsive-layout.js?v=boatboard-20260824-1";
 
 const popup = document.querySelector(".profile-popup");
 const closeButton = popup?.querySelector(".profile-popup-close");
@@ -9,8 +11,11 @@ let previewPersonId = null;
 let placement = "top-left";
 let placementLocked = false;
 let ensureVisibleOnPosition = false;
+let ensureVisibleTimer = 0;
 let selectionSource = "canvas";
 let requestExistingPopupMove = false;
+let closeActivationTimer = 0;
+let pinnedOpenedAt = 0;
 const popupTransitionMs = 160;
 const popupInEasing = "cubic-bezier(.22, .7, .28, 1)";
 const popupOutEasing = "cubic-bezier(.72, 0, .78, .3)";
@@ -30,11 +35,17 @@ function animateOutgoingPopup() {
 
 function animatePopupIn() {
   popup.getAnimations().forEach((animation) => animation.cancel());
+  clearTimeout(closeActivationTimer);
+  closeButton.disabled = true;
   popup.classList.add("is-open");
   popup.animate([
     { opacity: 0, transform: "scale(.2)" },
     { opacity: 1, transform: "scale(1)" },
   ], { duration: popupTransitionMs, easing: popupInEasing });
+  closeActivationTimer = setTimeout(() => {
+    closeActivationTimer = 0;
+    closeButton.disabled = false;
+  }, popupTransitionMs + 40);
 }
 
 function animatePopupOut() {
@@ -50,23 +61,26 @@ function animatePopupOut() {
 }
 
 function ensureVisible() {
-  const margin = 18;
-  const tolerance = 2;
-  const rectangles = [...document.querySelectorAll(
-    ".profile-popup.is-open:not(.popup-outgoing), .team-popup.is-open:not(.popup-outgoing)",
-  )].map((element) => element.getBoundingClientRect());
-  const rectangle = {
-    left: Math.min(...rectangles.map((item) => item.left)),
-    right: Math.max(...rectangles.map((item) => item.right)),
-    top: Math.min(...rectangles.map((item) => item.top)),
-    bottom: Math.max(...rectangles.map((item) => item.bottom)),
-  };
+  const rectangle = popup.getBoundingClientRect();
   const searchRectangle = document.querySelector(".viewer-search.is-open .viewer-search-panel")?.getBoundingClientRect();
-  const leftBoundary = searchRectangle ? searchRectangle.right + margin : margin;
-  const dx = rectangle.left < leftBoundary - tolerance ? leftBoundary - rectangle.left
-    : rectangle.right > innerWidth - margin + tolerance ? innerWidth - margin - rectangle.right : 0;
-  const dy = rectangle.top < margin - tolerance ? margin - rectangle.top
-    : rectangle.bottom > innerHeight - margin + tolerance ? innerHeight - margin - rectangle.bottom : 0;
+  if (compactPopupLayoutMedia.matches) {
+    const margin = 8;
+    const teamRectangle = document.querySelector(".team-popup.is-open:not(.popup-outgoing)")?.getBoundingClientRect();
+    const leftBoundary = margin;
+    const rightBoundary = (searchRectangle?.left ?? innerWidth) - margin;
+    const bottomBoundary = (teamRectangle?.top ?? innerHeight) - margin;
+    const dx = rectangle.left < leftBoundary ? leftBoundary - rectangle.left
+      : rectangle.right > rightBoundary ? rightBoundary - rectangle.right : 0;
+    let dy = 0;
+    if (rectangle.top < margin) dy = margin - rectangle.top;
+    else if (rectangle.bottom > bottomBoundary) {
+      const alignBottom = bottomBoundary - rectangle.bottom;
+      dy = rectangle.top + alignBottom >= margin ? alignBottom : margin - rectangle.top;
+    }
+    if (dx || dy) dispatchEvent(new CustomEvent("boatboard:ensure-popup-visible", { detail: { dx, dy } }));
+    return;
+  }
+  const { dx, dy } = popupViewportCorrection(rectangle, searchRectangle);
   if (dx || dy) dispatchEvent(new CustomEvent("boatboard:ensure-popup-visible", { detail: { dx, dy } }));
 }
 const organization = popup ? await loadOrganization() : null;
@@ -126,6 +140,53 @@ function initials(name) {
   return name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
+function openProfileImage(imageUrl, name) {
+  let viewer = document.querySelector(".profile-image-viewer");
+  if (!viewer) {
+    viewer = document.createElement("div");
+    viewer.className = "profile-image-viewer";
+    viewer.setAttribute("role", "dialog");
+    viewer.setAttribute("aria-modal", "true");
+    viewer.setAttribute("aria-label", "Profile image viewer");
+    viewer.tabIndex = -1;
+    const image = document.createElement("img");
+    viewer.append(image);
+    viewer.addEventListener("pointerdown", (event) => event.stopPropagation());
+    viewer.addEventListener("click", (event) => {
+      if (event.target === viewer) viewer.classList.remove("is-open");
+    });
+    viewer.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") viewer.classList.remove("is-open");
+    });
+    document.body.append(viewer);
+  }
+  const image = viewer.querySelector("img");
+  image.src = imageUrl;
+  image.alt = `${name} profile`;
+  viewer.classList.add("is-open");
+  viewer.focus({ preventScroll: true });
+}
+
+async function copyContactValue(value) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+  } catch {
+    // Local-network HTTP pages may not receive the secure-context Clipboard API.
+  }
+  const helper = document.createElement("textarea");
+  helper.value = value;
+  helper.readOnly = true;
+  helper.style.cssText = "position:fixed;opacity:0;pointer-events:none;inset:auto auto 0 0";
+  document.body.append(helper);
+  helper.select();
+  helper.setSelectionRange(0, helper.value.length);
+  document.execCommand("copy");
+  helper.remove();
+}
+
 function sizeDescription(element, defaultLines) {
   requestAnimationFrame(() => {
     const styles = getComputedStyle(element);
@@ -133,10 +194,12 @@ function sizeDescription(element, defaultLines) {
     const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const chrome = padding + parseFloat(styles.borderTopWidth) + parseFloat(styles.borderBottomWidth);
     const textLines = Math.max(1, Math.ceil(Math.max(0, element.scrollHeight - padding) / lineHeight));
-    const visibleLines = textLines >= defaultLines ? Math.min(6, Math.max(defaultLines, textLines)) + .5 : defaultLines;
+    const visibleLines = compactTouchUiMedia.matches
+      ? defaultLines
+      : textLines >= defaultLines ? Math.min(6, Math.max(defaultLines, textLines)) + .5 : defaultLines;
     element.style.height = `${visibleLines * lineHeight + chrome}px`;
     element.style.minHeight = element.style.height;
-    element.style.overflowY = textLines > 6 ? "auto" : "hidden";
+    element.style.overflowY = textLines > (compactTouchUiMedia.matches ? defaultLines : 6) ? "auto" : "hidden";
   });
 }
 
@@ -154,7 +217,17 @@ function renderPerson(personId) {
     image.alt = "";
     image.addEventListener("error", () => {
       image.remove();
+      avatar.classList.remove("is-image-clickable");
+      avatar.removeAttribute("role");
+      avatar.removeAttribute("tabindex");
       avatar.textContent = initials(person.name);
+    });
+    avatar.classList.add("is-image-clickable");
+    avatar.setAttribute("role", "button");
+    avatar.tabIndex = 0;
+    avatar.addEventListener("click", () => openProfileImage(person.imageUrl, person.name));
+    avatar.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") openProfileImage(person.imageUrl, person.name);
     });
     avatar.append(image);
   } else avatar.textContent = initials(person.name);
@@ -164,14 +237,24 @@ function renderPerson(personId) {
   name.textContent = person.name;
 
   const contact = (labelText, value) => {
-    const block = document.createElement("section");
+    const block = document.createElement("button");
+    block.type = "button";
     block.className = "profile-popup-detail";
     const label = document.createElement("small");
     label.textContent = labelText;
     const contentValue = document.createElement("div");
     const fallback = labelText === "WhatsApp" ? "+55 (00) 00000-0000"
       : labelText === "Email" ? "colleague@example.com" : "@example-user";
-    contentValue.textContent = value || fallback;
+    const displayedValue = value || fallback;
+    contentValue.textContent = displayedValue;
+    block.setAttribute("aria-label", `Copy ${labelText}: ${displayedValue}`);
+    block.addEventListener("click", () => {
+      block.classList.remove("is-pressing");
+      void block.offsetWidth;
+      block.classList.add("is-pressing");
+      setTimeout(() => block.classList.remove("is-pressing"), 150);
+      copyContactValue(displayedValue);
+    });
     block.append(label, contentValue);
     return block;
   };
@@ -210,6 +293,11 @@ function renderPerson(personId) {
 
 if (popup) {
   function closePopup() {
+    clearTimeout(closeActivationTimer);
+    closeActivationTimer = 0;
+    closeButton.disabled = false;
+    clearTimeout(ensureVisibleTimer);
+    ensureVisibleTimer = 0;
     pinnedPersonId = null;
     previewPersonId = null;
     placementLocked = false;
@@ -220,14 +308,17 @@ if (popup) {
   }
 
   addEventListener("boatboard:select-colleague", (event) => {
+    if (document.body.classList.contains("editor-mode")) return;
     if (event.detail?.source === "canvas" && pinnedPersonId === event.detail?.personId && popup.classList.contains("is-open")) {
+      if (performance.now() - pinnedOpenedAt < popupTransitionMs + 120) return;
       closePopup();
       return;
     }
     const selectedPersonId = event.detail?.personId ?? null;
-    selectionSource = event.detail?.source ?? "canvas";
+    const compactSearchOpen = compactPopupLayoutMedia.matches && document.querySelector(".viewer-search.is-open");
+    selectionSource = compactSearchOpen ? "search" : event.detail?.source ?? "canvas";
     requestExistingPopupMove = selectionSource === "search" || selectionSource === "team-popup";
-    ensureVisibleOnPosition = Boolean(document.querySelector(".team-popup.is-open:not(.popup-outgoing)"));
+    ensureVisibleOnPosition = Boolean(selectedPersonId);
     const promotesPreview = selectedPersonId && previewPersonId === selectedPersonId && popup.classList.contains("is-open");
     const replacesPinned = pinnedPersonId && selectedPersonId !== pinnedPersonId && popup.classList.contains("is-open");
     if (replacesPinned) {
@@ -236,13 +327,17 @@ if (popup) {
       popup.setAttribute("aria-hidden", "true");
     }
     pinnedPersonId = selectedPersonId;
+    if (pinnedPersonId) pinnedOpenedAt = performance.now();
     previewPersonId = null;
     if (pinnedPersonId) {
       window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
       popup.dataset.openOrder = String(window.boatboardUiLayerSequence);
+      popup.style.zIndex = String(20 + window.boatboardUiLayerSequence);
     }
     if (!promotesPreview) {
-      placement = event.detail?.placement === "auto"
+      placement = compactPopupLayoutMedia.matches && (compactSearchOpen || selectionSource === "team-popup")
+        ? "top-left"
+        : event.detail?.placement === "auto"
         ? automaticPlacement(event.detail.x, event.detail.y)
         : event.detail?.placement ?? "top-left";
       placementLocked = false;
@@ -250,7 +345,27 @@ if (popup) {
       if (pinnedPersonId) renderPerson(pinnedPersonId);
       popup.setAttribute("aria-hidden", String(!pinnedPersonId));
       if (pinnedPersonId) animatePopupIn();
+      if (pinnedPersonId && compactSearchOpen && event.detail?.source === "canvas") {
+        dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
+          detail: { personId: pinnedPersonId, fitPopup: true },
+        }));
+      }
     }
+  });
+
+  addEventListener("boatboard:search-opened", () => {
+    if (!compactPopupLayoutMedia.matches || !pinnedPersonId) return;
+    clearTimeout(ensureVisibleTimer);
+    ensureVisibleTimer = 0;
+    selectionSource = "search";
+    placement = "top-left";
+    placementLocked = true;
+    popup.dataset.placement = placement;
+    ensureVisibleOnPosition = false;
+    dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
+      detail: { personId: pinnedPersonId, fitPopup: true },
+    }));
+    dispatchEvent(new CustomEvent("boatboard:refresh-popup-positions"));
   });
 
   addEventListener("boatboard:preview-colleague", (event) => {
@@ -282,13 +397,15 @@ if (popup) {
     if (!displayedPersonId || event.detail?.personId !== displayedPersonId) return;
     const offset = Math.max(0, event.detail.radius);
     if (!placementLocked) {
-      const usesTarget = selectionSource === "search";
+      const usesTarget = selectionSource === "search" || selectionSource === "team-popup";
       const layoutX = usesTarget ? event.detail.targetX : event.detail.x;
       const layoutY = usesTarget ? event.detail.targetY : event.detail.y;
       const contentCenterX = usesTarget ? event.detail.targetContentCenterX : event.detail.contentCenterX;
       const contentCenterY = usesTarget ? event.detail.targetContentCenterY : event.detail.contentCenterY;
       const awayPlacement = `${layoutY < contentCenterY ? "top" : "bottom"}-${layoutX < contentCenterX ? "left" : "right"}`;
-      placement = choosePlacement(awayPlacement, layoutX, layoutY, offset, contentCenterX, contentCenterY, false);
+      placement = compactPopupLayoutMedia.matches && usesTarget
+        ? "top-left"
+        : choosePlacement(awayPlacement, layoutX, layoutY, offset, contentCenterX, contentCenterY, false);
       popup.dataset.placement = placement;
       placementLocked = true;
     }
@@ -311,12 +428,24 @@ if (popup) {
     }
     if (ensureVisibleOnPosition) {
       ensureVisibleOnPosition = false;
-      setTimeout(ensureVisible, popupTransitionMs + 16);
+      clearTimeout(ensureVisibleTimer);
+      ensureVisibleTimer = setTimeout(() => {
+        ensureVisibleTimer = 0;
+        ensureVisible();
+      }, popupTransitionMs + 16);
     }
   });
   addEventListener("boatboard:reanchor-profile", () => {
     if (!pinnedPersonId && !previewPersonId) return;
     placementLocked = false;
+    dispatchEvent(new CustomEvent("boatboard:refresh-popup-positions"));
+  });
+  addEventListener("boatboard:reanchor-profile-top-left", () => {
+    if (!compactPopupLayoutMedia.matches || (!pinnedPersonId && !previewPersonId)) return;
+    placement = "top-left";
+    placementLocked = true;
+    popup.dataset.placement = placement;
+    ensureVisibleOnPosition = true;
     dispatchEvent(new CustomEvent("boatboard:refresh-popup-positions"));
   });
 

@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from openpyxl import load_workbook
 
 ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+RUNTIME_MODE = "standalone" if getattr(sys, "frozen", False) else "development"
 PROJECT = ROOT / "project"
 TEMPLATE = PROJECT / "instance_template" / "boatboard.xlsx"
 BOARD_TEMPLATE = PROJECT / "instance_template" / "board.json"
@@ -82,8 +83,8 @@ def read_organization(path: Path = WORKBOOK) -> dict[str, object]:
             "description": str(row.get("description") or "").strip(),
         })
     organization = {
-        "companyName": str(company_values.get("company_name") or "BoatBoard"),
-        "pageTitle": str(company_values.get("page_title") or "Boat Board"),
+        "companyName": str(company_values.get("company_name") or "BoatTitle"),
+        "pageTitle": str(company_values.get("page_title") or "BoatTitle"),
         "teams": teams,
         "colleagues": colleagues,
     }
@@ -94,8 +95,8 @@ def read_organization(path: Path = WORKBOOK) -> dict[str, object]:
 def write_organization(payload: dict[str, object]) -> None:
     workbook = load_workbook(WORKBOOK)
     company = workbook["Company"]
-    company["B4"] = str(payload.get("companyName") or "BoatBoard")
-    company["B5"] = str(payload.get("pageTitle") or "Boat Board")
+    company["B4"] = str(payload.get("companyName") or "BoatTitle")
+    company["B5"] = str(payload.get("pageTitle") or "BoatTitle")
     teams_sheet = workbook["Teams"]
     colleagues_sheet = workbook["Colleagues"]
     if teams_sheet.max_row >= 4:
@@ -194,6 +195,19 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
         # The packaged Windows app intentionally has no console stream.
         return
 
+    def end_headers(self) -> None:
+        # Local development and standalone instances must show freshly edited board assets,
+        # including on phones where static HTML/CSS/JS caching is otherwise aggressive.
+        has_cache_control = any(
+            header.lower().startswith(b"cache-control:")
+            for header in getattr(self, "_headers_buffer", [])
+        )
+        if not has_cache_control:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        super().end_headers()
+
     def send_json(self, payload: object, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -207,7 +221,10 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             if path == "/api/health":
-                self.send_json({"app": "BoatBoard", "instance": str(INSTANCE.resolve()), "pid": os.getpid()})
+                self.send_json({"app": "BoatBoard", "mode": RUNTIME_MODE, "instance": str(INSTANCE.resolve()), "pid": os.getpid()})
+                return
+            if path == "/api/runtime":
+                self.send_json({"mode": RUNTIME_MODE})
                 return
             if path == "/api/organization":
                 self.send_json(read_organization())
@@ -293,10 +310,12 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": str(error)}, 400)
 
 
-def open_existing_server(page: str) -> bool:
+def open_existing_server(page: str, host: str) -> bool:
     try:
         state = json.loads(SERVER_STATE.read_text(encoding="utf-8"))
         port = int(state["port"])
+        if state.get("host", "127.0.0.1") != host:
+            return False
         with urlopen(f"http://127.0.0.1:{port}/api/health", timeout=.6) as response:
             health = json.loads(response.read().decode("utf-8"))
         if health.get("app") != "BoatBoard" or health.get("instance") != str(INSTANCE.resolve()):
@@ -307,10 +326,10 @@ def open_existing_server(page: str) -> bool:
         return False
 
 
-def create_server(preferred_port: int) -> tuple[ThreadingHTTPServer, int]:
+def create_server(preferred_port: int, host: str) -> tuple[ThreadingHTTPServer, int]:
     for port in range(preferred_port, preferred_port + 50):
         try:
-            return ThreadingHTTPServer(("127.0.0.1", port), BoatBoardHandler), port
+            return ThreadingHTTPServer((host, port), BoatBoardHandler), port
         except OSError:
             continue
     raise RuntimeError("BoatBoard could not find an available local port.")
@@ -319,11 +338,12 @@ def create_server(preferred_port: int) -> tuple[ThreadingHTTPServer, int]:
 if __name__ == "__main__":
     ensure_instance()
     requested_page = "/editor.html" if "--editor" in sys.argv else "/"
-    if open_existing_server(requested_page):
+    host = os.environ.get("BOATBOARD_HOST", "127.0.0.1")
+    if open_existing_server(requested_page, host):
         raise SystemExit(0)
     preferred_port = int(os.environ.get("BOATBOARD_PORT", "4173"))
-    server, port = create_server(preferred_port)
-    SERVER_STATE.write_text(json.dumps({"pid": os.getpid(), "port": port}, indent=2) + "\n", encoding="utf-8")
+    server, port = create_server(preferred_port, host)
+    SERVER_STATE.write_text(json.dumps({"pid": os.getpid(), "port": port, "host": host}, indent=2) + "\n", encoding="utf-8")
     print(f"BoatBoard: http://127.0.0.1:{port}/")
     print(f"Editor:    http://127.0.0.1:{port}/editor.html")
     if "--no-browser" not in sys.argv:

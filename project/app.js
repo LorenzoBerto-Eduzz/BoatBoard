@@ -6,14 +6,17 @@ import {
   saveBoardState,
 } from "./data/board-state.js?v=boatboard-20260809-91";
 import { getProfileArrangement, profileLayoutConfig } from "./layout/profile-arrangements.js?v=boatboard-20260812-112";
+import { loadRuntimeContext } from "./data/runtime-source.js?v=boatboard-20260821-153";
+import { compactPopupLayoutMedia, compactTouchUiMedia } from "./responsive-layout.js?v=boatboard-20260824-1";
 
 const board = document.querySelector(".board");
 const brandCompany = document.querySelector(".brand-company");
-const brandSubtitle = document.querySelector(".brand small");
+const brandRuntime = document.querySelector(".brand-runtime");
 const canvas = document.querySelector(".organization-canvas");
 const editorPanel = document.querySelector(".editor-panel");
 const context = canvas.getContext("2d", { alpha: true });
 const isEditorPage = document.body.classList.contains("editor-page");
+const runtimeContext = await loadRuntimeContext();
 let editActive = document.body.classList.contains("editor-mode");
 const organization = await loadOrganization();
 const teamGap = 12;
@@ -22,14 +25,35 @@ const teamRows = Math.max(1, Math.ceil(organization.teams.length / teamColumns))
 const camera = { scale: 1, x: 0, y: 0 };
 const targetCamera = { scale: 1, x: 0, y: 0 };
 const viewport = { width: 0, height: 0, fitScale: 1, sceneLeft: 0, sceneTop: 0 };
-const teamCacheScale = .4;
+function setStableMobileViewportHeight() {
+  if (compactTouchUiMedia.matches) {
+    document.documentElement.style.setProperty("--stable-mobile-height", `${innerHeight}px`);
+    document.documentElement.style.setProperty("--compact-team-sheet-height", `${Math.round(innerHeight * .38)}px`);
+  } else {
+    document.documentElement.style.removeProperty("--stable-mobile-height");
+    document.documentElement.style.removeProperty("--compact-team-sheet-height");
+  }
+}
+setStableMobileViewportHeight();
+const teamCacheResolutionScale = .4;
+const teamDetailSwitchScale = .24;
 let frameRequested = false;
 let interaction = null;
+const touchPointers = new Map();
 let ignoreNextContextMenu = false;
 let cameraEase = .24;
 let initialFitApplied = false;
+let fittedOverviewCameraScale = 1;
+let lastPublishedLineZoom = null;
+const connectionLineTuning = {
+  minZoom: .5,
+  maxZoom: 3,
+  minWidth: 1.05,
+  maxWidth: 2.45,
+};
 let selectedProfileId = null;
 let selectedTeamId = null;
+const selectedBubbleIds = new Set();
 let previewProfileId = null;
 let hoverCandidateId = null;
 let hoverTimer = null;
@@ -51,6 +75,24 @@ if (!editActive) {
 
 function initials(name) {
   return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function updateBrandHeader() {
+  const isDevelopment = runtimeContext.mode === "development";
+  brandRuntime.hidden = !isDevelopment;
+  fitCompactBrandTitle();
+}
+
+function fitCompactBrandTitle() {
+  brandCompany.style.removeProperty("font-size");
+  if (!compactPopupLayoutMedia.matches) return;
+  requestAnimationFrame(() => {
+    const availableWidth = brandCompany.parentElement?.clientWidth ?? 0;
+    if (!availableWidth || brandCompany.scrollWidth <= availableWidth) return;
+    const maximumSize = parseFloat(getComputedStyle(brandCompany).fontSize);
+    const fittedSize = Math.max(10, maximumSize * availableWidth / brandCompany.scrollWidth);
+    brandCompany.style.fontSize = `${fittedSize}px`;
+  });
 }
 
 function arrangementForCount(count) {
@@ -132,10 +174,10 @@ function rotateProfilePosition(position, degrees = 0) {
 function createTeamBitmap(team) {
   const diameter = team.radius * 2;
   const bitmap = document.createElement("canvas");
-  bitmap.width = Math.ceil(diameter * teamCacheScale);
-  bitmap.height = Math.ceil(diameter * teamCacheScale);
+  bitmap.width = Math.ceil(diameter * teamCacheResolutionScale);
+  bitmap.height = Math.ceil(diameter * teamCacheResolutionScale);
   const bitmapContext = bitmap.getContext("2d", { alpha: true });
-  bitmapContext.scale(teamCacheScale, teamCacheScale);
+  bitmapContext.scale(teamCacheResolutionScale, teamCacheResolutionScale);
   const center = team.radius;
   const bubbleGradient = bitmapContext.createRadialGradient(center, center, 0, center, center, team.radius);
   bubbleGradient.addColorStop(0, "rgba(126, 154, 167, .024)");
@@ -249,8 +291,11 @@ async function refreshOrganization(nextOrganization) {
   refreshed.forEach((team) => teamsById.set(team.id, team));
   profilesById.clear();
   refreshedProfilesById.forEach((value, key) => profilesById.set(key, value));
+  [...selectedBubbleIds].forEach((teamId) => {
+    if (!teamsById.has(teamId)) selectedBubbleIds.delete(teamId);
+  });
   brandCompany.textContent = organization.companyName;
-  brandSubtitle.textContent = `${organization.pageTitle} Editor`;
+  updateBrandHeader();
   saveBoardState(boardState);
   requestDraw();
 }
@@ -279,11 +324,25 @@ function fitPlacedBubbles() {
     result.bottom = Math.max(result.bottom, state.y + team.radius);
     return result;
   }, { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
-  const margin = Math.min(52, Math.max(28, Math.min(viewport.width, viewport.height) * .045));
-  const availableSquare = Math.max(1, Math.min(viewport.width, viewport.height) - margin * 2);
-  const contentSize = Math.max(bounds.right - bounds.left, bounds.bottom - bounds.top, 1);
-  const fittedSceneScale = availableSquare / contentSize;
+  const shortestViewportSide = Math.min(viewport.width, viewport.height);
+  const margin = compactTouchUiMedia.matches
+    ? Math.min(7, Math.max(3, shortestViewportSide * .01))
+    : compactPopupLayoutMedia.matches
+      ? Math.min(22, Math.max(12, shortestViewportSide * .025))
+      : Math.min(52, Math.max(28, shortestViewportSide * .045));
+  const contentWidth = Math.max(bounds.right - bounds.left, 1);
+  const contentHeight = Math.max(bounds.bottom - bounds.top, 1);
+  const squareFitScale = Math.max(1, Math.min(viewport.width, viewport.height) - margin * 2) /
+    Math.max(contentWidth, contentHeight);
+  const rectangularFitScale = Math.min(
+    Math.max(1, viewport.width - margin * 2) / contentWidth,
+    Math.max(1, viewport.height - margin * 2) / contentHeight,
+  );
+  const fittedSceneScale = compactTouchUiMedia.matches
+    ? squareFitScale + (rectangularFitScale - squareFitScale) * .5
+    : squareFitScale;
   camera.scale = Math.min(30, Math.max(.08, fittedSceneScale / viewport.fitScale));
+  fittedOverviewCameraScale = camera.scale;
   const appliedSceneScale = viewport.fitScale * camera.scale;
   camera.x = viewport.width / 2 - viewport.sceneLeft - (bounds.left + bounds.right) / 2 * appliedSceneScale;
   camera.y = viewport.height / 2 - viewport.sceneTop - (bounds.top + bounds.bottom) / 2 * appliedSceneScale;
@@ -296,22 +355,60 @@ function profileWorldPosition(team, profile) {
   return { x: state.x + position.x, y: state.y + position.y };
 }
 
-function focusColleague(personId, focusScale = .5) {
+function focusColleague(personId, focusScale = fittedOverviewCameraScale, fitPopup = false) {
   if (editActive) return;
   const source = profilesById.get(personId);
   if (!source || !teamState(source.team).placed) return;
   const position = profileWorldPosition(source.team, source.profile);
-  targetCamera.scale = Math.min(30, Math.max(.08, focusScale));
+  targetCamera.scale = Math.min(30, Math.max(.08,
+    compactPopupLayoutMedia.matches ? fittedOverviewCameraScale * 1.12 : focusScale));
   const scale = viewport.fitScale * targetCamera.scale;
-  const searchPanel = document.querySelector(".viewer-search.is-open .viewer-search-panel");
+  const compactFocus = compactPopupLayoutMedia.matches ? compactBoardFocusPoint() : null;
+  const searchPanel = compactFocus ? null : document.querySelector(".viewer-search.is-open .viewer-search-panel");
   const remainingCenter = searchPanel
     ? (searchPanel.getBoundingClientRect().right + viewport.width) / 2
     : viewport.width / 2;
-  const focusX = viewport.width / 2 + (remainingCenter - viewport.width / 2) * .7;
-  const focusY = viewport.height / 2 + profileLayoutConfig.profileDiameter / 2 * scale +
+  const focusX = compactFocus?.x ?? viewport.width / 2 + (remainingCenter - viewport.width / 2) * .7;
+  let focusY = compactFocus?.y ?? viewport.height / 2 + profileLayoutConfig.profileDiameter / 2 * scale +
     Math.min(44, viewport.height * .048);
+  if (compactFocus && fitPopup) {
+    const profilePopup = document.querySelector(".profile-popup.is-open:not(.popup-outgoing)");
+    if (profilePopup) {
+      const margin = 8;
+      const profileRadius = profileLayoutConfig.profileDiameter / 2 * scale;
+      const popupTop = focusY - profileRadius - profilePopup.offsetHeight;
+      if (popupTop < margin) focusY += margin - popupTop;
+    }
+  }
   targetCamera.x = focusX - viewport.sceneLeft - position.x * scale;
   targetCamera.y = focusY - viewport.sceneTop - position.y * scale;
+  cameraEase = .105;
+  requestDraw();
+}
+
+function compactBoardFocusPoint() {
+  const searchPanel = document.querySelector(".viewer-search-panel");
+  const openTeamSheet = document.querySelector(".team-popup.is-open:not(.popup-outgoing)");
+  const upperBoundary = searchPanel?.getBoundingClientRect().bottom ?? 0;
+  // offsetTop is unaffected by the sheet's opening scale transform, unlike its client rectangle.
+  const lowerBoundary = openTeamSheet?.offsetTop ?? viewport.height;
+  const verticalFraction = openTeamSheet ? .5 : .4;
+  return {
+    x: viewport.width / 2,
+    y: upperBoundary + Math.max(0, lowerBoundary - upperBoundary) * verticalFraction,
+  };
+}
+
+function focusTeam(teamId) {
+  if (editActive || !compactPopupLayoutMedia.matches) return;
+  const team = teamsById.get(teamId);
+  if (!team || !teamState(team).placed) return;
+  const state = teamState(team);
+  const focus = compactBoardFocusPoint();
+  targetCamera.scale = Math.min(30, Math.max(.08, fittedOverviewCameraScale * 1.12));
+  const scale = viewport.fitScale * targetCamera.scale;
+  targetCamera.x = focus.x - viewport.sceneLeft - state.x * scale;
+  targetCamera.y = focus.y - viewport.sceneTop - state.y * scale;
   cameraEase = .105;
   requestDraw();
 }
@@ -333,6 +430,7 @@ function publishSelectedProfilePosition() {
       contentCenterY: sceneToScreenY(contentCenter.y),
       targetX: sceneToTargetScreenX(position.x),
       targetY: sceneToTargetScreenY(position.y),
+      targetRadius: profileLayoutConfig.profileDiameter / 2 * targetSceneScale(),
       targetContentCenterX: sceneToTargetScreenX(contentCenter.x),
       targetContentCenterY: sceneToTargetScreenY(contentCenter.y),
     },
@@ -353,12 +451,19 @@ function placedContentCenter() {
   return { x: (bounds.left + bounds.right) / 2, y: (bounds.top + bounds.bottom) / 2 };
 }
 
+function selectionRingOffset(baseOffset) {
+  if (!compactTouchUiMedia.matches) return baseOffset;
+  const zoomRatio = camera.scale / Math.max(.001, fittedOverviewCameraScale);
+  // Keep the 4px stroke just outside its target while contracting the gap quickly when zooming out.
+  return Math.max(2.75, baseOffset * Math.min(1, zoomRatio * zoomRatio));
+}
+
 function drawSelectedProfileRing() {
   if (!selectedProfileId) return;
   const source = profilesById.get(selectedProfileId);
   if (!source || !teamState(source.team).placed) return;
   const position = profileWorldPosition(source.team, source.profile);
-  const radius = profileLayoutConfig.profileDiameter / 2 * sceneScale() + 6;
+  const radius = profileLayoutConfig.profileDiameter / 2 * sceneScale() + selectionRingOffset(6);
   context.save();
   context.beginPath();
   context.arc(sceneToScreenX(position.x), sceneToScreenY(position.y), radius, 0, Math.PI * 2);
@@ -375,11 +480,80 @@ function drawSelectedTeamRing() {
   const state = teamState(team);
   context.save();
   context.beginPath();
-  context.arc(sceneToScreenX(state.x), sceneToScreenY(state.y), team.radius * sceneScale() + 7, 0, Math.PI * 2);
+  context.arc(sceneToScreenX(state.x), sceneToScreenY(state.y), team.radius * sceneScale() + selectionRingOffset(7), 0, Math.PI * 2);
   context.strokeStyle = "rgba(158, 183, 192, .16)";
   context.lineWidth = 4;
   context.stroke();
   context.restore();
+}
+
+function drawEditorBubbleSelection() {
+  if (!editActive || selectedBubbleIds.size === 0) return;
+  const scale = sceneScale();
+  context.save();
+  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.lineWidth = 4;
+  selectedBubbleIds.forEach((teamId) => {
+    const team = teamsById.get(teamId);
+    if (!team || !teamState(team).placed) return;
+    const state = teamState(team);
+    context.beginPath();
+    context.arc(sceneToScreenX(state.x), sceneToScreenY(state.y), team.radius * scale + selectionRingOffset(7), 0, Math.PI * 2);
+    context.stroke();
+  });
+  context.restore();
+}
+
+function drawMarqueeSelection() {
+  if (interaction?.type !== "marquee") return;
+  const left = Math.min(interaction.startX, interaction.currentX);
+  const top = Math.min(interaction.startY, interaction.currentY);
+  const width = Math.abs(interaction.currentX - interaction.startX);
+  const height = Math.abs(interaction.currentY - interaction.startY);
+  context.save();
+  context.fillStyle = "rgba(116, 163, 181, .08)";
+  context.strokeStyle = "rgba(157, 195, 208, .56)";
+  context.lineWidth = 1.5;
+  context.fillRect(left, top, width, height);
+  context.strokeRect(left + .75, top + .75, Math.max(0, width - 1.5), Math.max(0, height - 1.5));
+  context.restore();
+}
+
+function updateMarqueeSelection(selection) {
+  const left = Math.min(selection.startX, selection.currentX);
+  const right = Math.max(selection.startX, selection.currentX);
+  const top = Math.min(selection.startY, selection.currentY);
+  const bottom = Math.max(selection.startY, selection.currentY);
+  const scale = sceneScale();
+  selectedBubbleIds.clear();
+  renderedTeams.forEach((team) => {
+    const state = teamState(team);
+    if (!state.placed) return;
+    const centerX = sceneToScreenX(state.x);
+    const centerY = sceneToScreenY(state.y);
+    const nearestX = Math.max(left, Math.min(centerX, right));
+    const nearestY = Math.max(top, Math.min(centerY, bottom));
+    const radius = team.radius * scale;
+    if (Math.hypot(centerX - nearestX, centerY - nearestY) <= radius) selectedBubbleIds.add(team.id);
+  });
+}
+
+function teamMoveInteraction(team, event) {
+  if (!selectedBubbleIds.has(team.id)) {
+    selectedBubbleIds.clear();
+    selectedBubbleIds.add(team.id);
+  }
+  const moves = [...selectedBubbleIds]
+    .map((teamId) => teamsById.get(teamId))
+    .filter((selectedTeam) => selectedTeam && teamState(selectedTeam).placed)
+    .map((selectedTeam) => {
+      const selectedState = teamState(selectedTeam);
+      return { team: selectedTeam, x: selectedState.x, y: selectedState.y };
+    });
+  return {
+    type: "team", pointerId: event.pointerId, team, moves,
+    pointerX: event.clientX, pointerY: event.clientY,
+  };
 }
 
 function publishSelectedTeamPosition() {
@@ -415,14 +589,20 @@ function drawLineBetweenProfileAndTeam(sourceTeam, profile, targetTeam) {
   context.beginPath();
   context.moveTo(startCenterX + unitX * profileRadius, startCenterY + unitY * profileRadius);
   context.lineTo(targetCenterX - unitX * teamRadius, targetCenterY - unitY * teamRadius);
-  context.strokeStyle = "rgba(70, 86, 94, .32)";
+  context.strokeStyle = "rgba(70, 86, 94, .224)";
   context.stroke();
 }
 
 function drawLeadershipLinks() {
   context.save();
   context.lineCap = "round";
-  context.lineWidth = 3;
+  const overviewZoomRatio = camera.scale / fittedOverviewCameraScale;
+  const zoomRange = Math.max(.01, connectionLineTuning.maxZoom - connectionLineTuning.minZoom);
+  const connectionLineProgress = Math.min(1, Math.max(0,
+    (overviewZoomRatio - connectionLineTuning.minZoom) / zoomRange));
+  const lineWidth = connectionLineTuning.minWidth +
+    (connectionLineTuning.maxWidth - connectionLineTuning.minWidth) * connectionLineProgress;
+  context.lineWidth = lineWidth * (compactTouchUiMedia.matches ? .6 : 1);
   renderedTeams.forEach((targetTeam) => {
     const targetState = teamState(targetTeam);
     if (!targetState.placed || !targetState.leaderId) return;
@@ -446,7 +626,7 @@ function drawLeadershipLinks() {
       context.beginPath();
       context.moveTo(startX + dx / distance * radius, startY + dy / distance * radius);
       context.lineTo(interaction.pointerX, interaction.pointerY);
-      context.strokeStyle = "rgba(70, 86, 94, .32)";
+      context.strokeStyle = "rgba(70, 86, 94, .224)";
       context.stroke();
     }
   }
@@ -568,7 +748,7 @@ function drawScene() {
     if (!visibleCircle(centerX, centerY, radius)) return;
     const reorderingThisTeam = interaction?.type === "reorder" && interaction.source.team.id === team.id;
     const rotatingThisTeam = interaction?.type === "rotation" && interaction.team.id === team.id;
-    if (scale <= teamCacheScale && !reorderingThisTeam && !rotatingThisTeam) {
+    if (scale <= teamDetailSwitchScale && !reorderingThisTeam && !rotatingThisTeam) {
       context.drawImage(team.bitmap, centerX - radius, centerY - radius, radius * 2, radius * 2);
     } else {
       drawBubble(team, centerX, centerY, radius, scale);
@@ -590,10 +770,13 @@ function drawScene() {
     });
   }
   drawRotationHandles();
+  drawEditorBubbleSelection();
   drawSelectedTeamRing();
   drawSelectedProfileRing();
+  drawMarqueeSelection();
   publishSelectedTeamPosition();
   publishSelectedProfilePosition();
+  publishCurrentLineZoom();
   if (!interaction && cameraDifference > .0001) requestDraw();
 }
 
@@ -603,7 +786,25 @@ function requestDraw() {
   requestAnimationFrame(drawScene);
 }
 
+function publishCurrentLineZoom() {
+  if (runtimeContext.mode !== "development") return;
+  const zoom = camera.scale / fittedOverviewCameraScale;
+  if (lastPublishedLineZoom !== null && Math.abs(lastPublishedLineZoom - zoom) < .001) return;
+  lastPublishedLineZoom = zoom;
+  dispatchEvent(new CustomEvent("boatboard:line-zoom", { detail: { zoom } }));
+}
+
 function resizeCanvas() {
+  const hadViewport = viewport.width > 0 && viewport.height > 0;
+  const currentCenter = hadViewport ? {
+    x: screenToSceneX(viewport.width / 2),
+    y: screenToSceneY(viewport.height / 2),
+  } : null;
+  const targetScaleBeforeResize = hadViewport ? targetSceneScale() : 1;
+  const targetCenter = hadViewport ? {
+    x: (viewport.width / 2 - viewport.sceneLeft - targetCamera.x) / targetScaleBeforeResize,
+    y: (viewport.height / 2 - viewport.sceneTop - targetCamera.y) / targetScaleBeforeResize,
+  } : null;
   const rectangle = board.getBoundingClientRect();
   const pixelRatio = Math.min(2, devicePixelRatio || 1);
   viewport.width = rectangle.width;
@@ -619,13 +820,81 @@ function resizeCanvas() {
   if (!initialFitApplied) {
     fitPlacedBubbles();
     initialFitApplied = true;
+  } else {
+    const currentScale = sceneScale();
+    const targetScale = targetSceneScale();
+    camera.x = viewport.width / 2 - viewport.sceneLeft - currentCenter.x * currentScale;
+    camera.y = viewport.height / 2 - viewport.sceneTop - currentCenter.y * currentScale;
+    targetCamera.x = viewport.width / 2 - viewport.sceneLeft - targetCenter.x * targetScale;
+    targetCamera.y = viewport.height / 2 - viewport.sceneTop - targetCenter.y * targetScale;
   }
+  const focusedProfileRadius = profileLayoutConfig.profileDiameter / 2
+    * viewport.fitScale * fittedOverviewCameraScale * 1.12;
+  document.documentElement.style.setProperty(
+    "--compact-focused-profile-radius",
+    `${focusedProfileRadius}px`,
+  );
   requestDraw();
+  fitCompactBrandTitle();
 }
 
 function localPointer(event) {
   const rectangle = board.getBoundingClientRect();
   return { x: event.clientX - rectangle.left, y: event.clientY - rectangle.top };
+}
+
+function touchPair() {
+  return [...touchPointers.entries()].slice(0, 2);
+}
+
+function touchPairGeometry(pair = touchPair()) {
+  const rectangle = board.getBoundingClientRect();
+  const first = pair[0][1];
+  const second = pair[1][1];
+  return {
+    centerX: (first.x + second.x) / 2 - rectangle.left,
+    centerY: (first.y + second.y) / 2 - rectangle.top,
+    distance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+  };
+}
+
+function beginTouchPinch() {
+  const pair = touchPair();
+  if (pair.length < 2) return;
+  if (interaction?.type === "team" || interaction?.type === "rotation") persistBoard();
+  const geometry = touchPairGeometry(pair);
+  cameraEase = .24;
+  targetCamera.scale = camera.scale;
+  targetCamera.x = camera.x;
+  targetCamera.y = camera.y;
+  const scale = sceneScale();
+  interaction = {
+    type: "pinch",
+    pointerIds: pair.map(([pointerId]) => pointerId),
+    initialDistance: geometry.distance,
+    initialScale: camera.scale,
+    anchorX: (geometry.centerX - viewport.sceneLeft - camera.x) / scale,
+    anchorY: (geometry.centerY - viewport.sceneTop - camera.y) / scale,
+  };
+  board.classList.remove("is-moving-team", "is-rotating", "is-marquee-selecting");
+  board.classList.add("is-panning");
+}
+
+function updateTouchPinch() {
+  if (interaction?.type !== "pinch") return;
+  const pair = interaction.pointerIds.map((pointerId) => [pointerId, touchPointers.get(pointerId)]);
+  if (pair.some(([, point]) => !point)) return;
+  const geometry = touchPairGeometry(pair);
+  const nextScale = Math.min(30, Math.max(.08,
+    interaction.initialScale * geometry.distance / interaction.initialDistance));
+  const scale = viewport.fitScale * nextScale;
+  camera.scale = nextScale;
+  camera.x = geometry.centerX - viewport.sceneLeft - interaction.anchorX * scale;
+  camera.y = geometry.centerY - viewport.sceneTop - interaction.anchorY * scale;
+  targetCamera.scale = camera.scale;
+  targetCamera.x = camera.x;
+  targetCamera.y = camera.y;
+  requestDraw();
 }
 
 function teamAt(x, y) {
@@ -640,7 +909,7 @@ function teamAt(x, y) {
 function profileAt(x, y) {
   const sceneX = screenToSceneX(x);
   const sceneY = screenToSceneY(y);
-  const profileRadius = profileLayoutConfig.profileDiameter / 2 + 10 / sceneScale();
+  const profileRadius = profileLayoutConfig.profileDiameter / 2 + 7 / sceneScale();
   for (const team of [...renderedTeams].reverse()) {
     const state = teamState(team);
     if (!state.placed) continue;
@@ -690,9 +959,16 @@ function finishProfileReorder(commit) {
 }
 
 brandCompany.textContent = organization.companyName;
-brandSubtitle.textContent = isEditorPage ? `${organization.pageTitle} Editor` : organization.pageTitle;
+updateBrandHeader();
 resizeCanvas();
+requestAnimationFrame(() => board.classList.add("is-ui-ready"));
 addEventListener("resize", resizeCanvas);
+addEventListener("orientationchange", () => {
+  setTimeout(() => {
+    setStableMobileViewportHeight();
+    resizeCanvas();
+  }, 250);
+});
 {
   addEventListener("boatboard:select-colleague", (event) => {
     selectedProfileId = event.detail?.personId ?? null;
@@ -704,15 +980,25 @@ addEventListener("resize", resizeCanvas);
     requestDraw();
   });
   addEventListener("boatboard:focus-colleague", (event) => {
-    focusColleague(event.detail?.personId, event.detail?.scale);
+    focusColleague(event.detail?.personId, event.detail?.scale, event.detail?.fitPopup === true);
   });
   addEventListener("storage", (event) => {
-    if (event.key === boardStateStorageKey) location.reload();
+    if (event.key === boardStateStorageKey && !editActive) location.reload();
   });
 }
 addEventListener("boatboard:select-team", (event) => { selectedTeamId = event.detail?.teamId ?? null; requestDraw(); });
 addEventListener("boatboard:close-team", () => { selectedTeamId = null; requestDraw(); });
+addEventListener("boatboard:focus-team", (event) => focusTeam(event.detail?.teamId));
 addEventListener("boatboard:refresh-popup-positions", requestDraw);
+addEventListener("boatboard:line-tuning", (event) => {
+  const next = event.detail;
+  if (!next) return;
+  connectionLineTuning.minZoom = Number(next.minZoom) || .5;
+  connectionLineTuning.maxZoom = Math.max(connectionLineTuning.minZoom + .01, Number(next.maxZoom) || 3);
+  connectionLineTuning.minWidth = Math.max(.1, Number(next.minWidth) || 1.05);
+  connectionLineTuning.maxWidth = Math.max(connectionLineTuning.minWidth, Number(next.maxWidth) || 2.45);
+  requestDraw();
+});
 addEventListener("boatboard:enter-edit-mode", () => {
   editActive = true;
   clearProfileHover();
@@ -724,7 +1010,8 @@ addEventListener("boatboard:enter-edit-mode", () => {
 addEventListener("boatboard:exit-edit-mode", () => {
   editActive = false;
   interaction = null;
-  board.classList.remove("is-rotating", "is-rotation-hover", "is-panning");
+  selectedBubbleIds.clear();
+  board.classList.remove("is-rotating", "is-rotation-hover", "is-panning", "is-marquee-selecting", "is-team-drag-hover", "is-moving-team");
   requestDraw();
 });
 addEventListener("boatboard:ensure-popup-visible", (event) => {
@@ -758,8 +1045,9 @@ function clearProfileHover() {
 {
   board.addEventListener("pointermove", (event) => {
     if (editActive) return;
-    if (interaction || event.target.closest(".viewer-search, .profile-popup-close")) {
+    if (interaction || event.target.closest(".viewer-search, .profile-popup, .team-popup")) {
       clearProfileHover();
+      board.classList.remove("is-team-hover", "is-profile-hover");
       return;
     }
     const pointer = localPointer(event);
@@ -767,29 +1055,14 @@ function clearProfileHover() {
     const personId = hovered?.profile.id ?? null;
     board.classList.toggle("is-profile-hover", Boolean(personId));
     board.classList.toggle("is-team-hover", !personId && Boolean(teamAt(pointer.x, pointer.y)));
-    if (selectedProfileId) {
-      clearTimeout(hoverTimer);
-      hoverTimer = null;
-      hoverCandidateId = null;
-      return;
-    }
-    if (personId === hoverCandidateId) return;
     clearTimeout(hoverTimer);
+    hoverTimer = null;
+    hoverCandidateId = null;
     if (previewProfileId) {
       const previousId = previewProfileId;
       previewProfileId = null;
       dispatchEvent(new CustomEvent("boatboard:preview-colleague-end", { detail: { personId: previousId } }));
     }
-    hoverCandidateId = personId;
-    if (!hovered) return;
-    hoverTimer = setTimeout(() => {
-      if (hoverCandidateId !== personId || selectedProfileId) return;
-      previewProfileId = personId;
-      dispatchEvent(new CustomEvent("boatboard:preview-colleague", {
-        detail: { personId, placement: "auto", x: pointer.x, y: pointer.y },
-      }));
-      requestDraw();
-    }, 400);
   });
   board.addEventListener("pointerleave", () => { clearProfileHover(); board.classList.remove("is-team-hover"); });
 }
@@ -797,12 +1070,17 @@ if (isEditorPage) {
   board.addEventListener("pointermove", (event) => {
     if (!editActive) return;
     if (interaction) return;
+    if (event.target.closest(".profile-popup, .team-popup, .editor-panel")) {
+      board.classList.remove("is-rotation-hover", "is-profile-hover", "is-team-drag-hover");
+      return;
+    }
     const pointer = localPointer(event);
     const rotationTeam = rotationHandleAt(pointer.x, pointer.y);
     board.classList.toggle("is-rotation-hover", Boolean(rotationTeam));
-    board.classList.toggle("is-profile-hover", !rotationTeam && Boolean(profileAt(pointer.x, pointer.y)));
+    board.classList.remove("is-profile-hover");
+    board.classList.toggle("is-team-drag-hover", !rotationTeam && Boolean(teamAt(pointer.x, pointer.y)));
   });
-  board.addEventListener("pointerleave", () => board.classList.remove("is-rotation-hover", "is-profile-hover"));
+  board.addEventListener("pointerleave", () => board.classList.remove("is-rotation-hover", "is-profile-hover", "is-team-drag-hover"));
   saveBoardState(boardState);
   addEventListener("boatboard:tray-drag-start", (event) => {
     const team = teamsById.get(event.detail?.teamId);
@@ -860,6 +1138,19 @@ board.addEventListener("wheel", (event) => {
 
 board.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
+  const overFixedUi = event.target instanceof Element && event.target.closest(
+    ".viewer-search-panel, .profile-popup, .team-popup, .editor-panel",
+  );
+  if (event.pointerType === "touch" && !overFixedUi) {
+    touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touchPointers.size >= 2) {
+      event.preventDefault();
+      board.setPointerCapture(event.pointerId);
+      beginTouchPinch();
+      requestDraw();
+      return;
+    }
+  }
   const pointer = localPointer(event);
   const clickedViewerProfile = profileAt(pointer.x, pointer.y);
   if (!editActive && clickedViewerProfile?.profile.id === previewProfileId) {
@@ -872,10 +1163,15 @@ board.addEventListener("pointerdown", (event) => {
   targetCamera.x = camera.x;
   targetCamera.y = camera.y;
   if (editActive) {
-    const source = profileAt(pointer.x, pointer.y);
-    if (source) {
-      interaction = { type: "connection", pointerId: event.pointerId, pointerX: pointer.x, pointerY: pointer.y, startX: pointer.x, startY: pointer.y, moved: false, source, targetTeamId: null };
-    } else {
+    if (event.shiftKey) {
+      selectedBubbleIds.clear();
+      interaction = {
+        type: "marquee", pointerId: event.pointerId,
+        startX: pointer.x, startY: pointer.y, currentX: pointer.x, currentY: pointer.y,
+      };
+      board.classList.add("is-marquee-selecting");
+    }
+    if (!interaction) {
       const rotationTeam = rotationHandleAt(pointer.x, pointer.y);
       if (rotationTeam) {
         interaction = {
@@ -886,8 +1182,8 @@ board.addEventListener("pointerdown", (event) => {
       } else {
         const team = teamAt(pointer.x, pointer.y);
         if (team) {
-        const state = teamState(team);
-        interaction = { type: "team", pointerId: event.pointerId, team, pointerX: event.clientX, pointerY: event.clientY, x: state.x, y: state.y };
+          interaction = teamMoveInteraction(team, event);
+          board.classList.add("is-moving-team");
         }
       }
     }
@@ -913,6 +1209,14 @@ addEventListener("pointerdown", (event) => {
 }, { capture: true });
 
 addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch" && touchPointers.has(event.pointerId)) {
+    touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (interaction?.type === "pinch") {
+      event.preventDefault();
+      updateTouchPinch();
+      return;
+    }
+  }
   if (interaction?.type === "reorder") {
     const pointer = localPointer(event);
     interaction.pointerX = pointer.x;
@@ -937,9 +1241,18 @@ addEventListener("pointermove", (event) => {
     targetCamera.x = camera.x;
     targetCamera.y = camera.y;
   } else if (interaction.type === "team") {
-    const state = teamState(interaction.team);
-    state.x = interaction.x + (event.clientX - interaction.pointerX) / sceneScale();
-    state.y = interaction.y + (event.clientY - interaction.pointerY) / sceneScale();
+    const dx = (event.clientX - interaction.pointerX) / sceneScale();
+    const dy = (event.clientY - interaction.pointerY) / sceneScale();
+    interaction.moves.forEach((move) => {
+      const state = teamState(move.team);
+      state.x = move.x + dx;
+      state.y = move.y + dy;
+    });
+  } else if (interaction.type === "marquee") {
+    const pointer = localPointer(event);
+    interaction.currentX = pointer.x;
+    interaction.currentY = pointer.y;
+    updateMarqueeSelection(interaction);
   } else if (interaction.type === "rotation") {
     const degrees = interaction.rotation + (event.clientY - interaction.pointerY) * .6;
     const snapped = Math.round(degrees / 10) * 10;
@@ -958,6 +1271,20 @@ addEventListener("pointermove", (event) => {
 });
 
 function stopInteraction(event) {
+  if (event.pointerType === "touch") {
+    touchPointers.delete(event.pointerId);
+    if (interaction?.type === "pinch" && interaction.pointerIds.includes(event.pointerId)) {
+      const remaining = [...touchPointers.entries()][0];
+      interaction = remaining ? {
+        type: "pan", pointerId: remaining[0], pointerX: remaining[1].x, pointerY: remaining[1].y,
+        x: camera.x, y: camera.y, moved: true, clickProfile: null, clickTeam: null,
+      } : null;
+      board.classList.toggle("is-panning", Boolean(remaining));
+      if (board.hasPointerCapture(event.pointerId)) board.releasePointerCapture(event.pointerId);
+      requestDraw();
+      return;
+    }
+  }
   if (!interaction || interaction.pointerId !== event.pointerId) return;
   const completed = interaction;
   if (event.type === "pointerup" && completed.type === "pan" && !completed.moved && completed.clickProfile) {
@@ -973,7 +1300,7 @@ function stopInteraction(event) {
     }));
   } else if (event.type === "pointerup" && completed.type === "pan" && !completed.moved && completed.clickTeam) {
     dispatchEvent(new CustomEvent("boatboard:select-team", { detail: { teamId: completed.clickTeam.id, source: "canvas" } }));
-  } else if (event.type === "pointerup" && completed.type === "connection" && !completed.moved) {
+  } else if (!editActive && event.type === "pointerup" && completed.type === "connection" && !completed.moved) {
     const pointer = localPointer(event);
     dispatchEvent(new CustomEvent("boatboard:select-colleague", {
       detail: { personId: completed.source.profile.id, placement: "auto", source: "canvas", x: pointer.x, y: pointer.y },
@@ -981,13 +1308,13 @@ function stopInteraction(event) {
   } else if (event.type === "pointerup" && completed.type === "connection" && completed.targetTeamId) {
     boardState.teams[completed.targetTeamId].leaderId = completed.source.profile.id;
     persistBoard();
-  } else if (event.type === "pointerup" && completed.type === "team" && Math.hypot(event.clientX - completed.pointerX, event.clientY - completed.pointerY) <= 3) {
+  } else if (!editActive && event.type === "pointerup" && completed.type === "team" && Math.hypot(event.clientX - completed.pointerX, event.clientY - completed.pointerY) <= 3) {
     dispatchEvent(new CustomEvent("boatboard:select-team", { detail: { teamId: completed.team.id, source: "canvas" } }));
   } else if (completed.type === "team") {
     const panelBounds = editorPanel?.getBoundingClientRect();
     if (panelBounds && event.clientX >= panelBounds.left && event.clientX <= panelBounds.right &&
         event.clientY >= panelBounds.top && event.clientY <= panelBounds.bottom) {
-      teamState(completed.team).placed = false;
+      completed.moves.forEach((move) => { teamState(move.team).placed = false; });
     }
     persistBoard();
   } else if (completed.type === "rotation") {
@@ -996,7 +1323,9 @@ function stopInteraction(event) {
   }
   interaction = null;
   board.classList.remove("is-panning");
+  board.classList.remove("is-moving-team");
   board.classList.remove("is-rotating");
+  board.classList.remove("is-marquee-selecting");
   if (board.hasPointerCapture(event.pointerId)) board.releasePointerCapture(event.pointerId);
   requestDraw();
 }
@@ -1010,7 +1339,13 @@ addEventListener("keydown", (event) => {
   )];
   const latest = layers.sort((left, right) =>
     Number(right.dataset.openOrder ?? 0) - Number(left.dataset.openOrder ?? 0))[0];
-  if (!latest) return;
+  if (!latest) {
+    if (editActive && selectedBubbleIds.size > 0) {
+      selectedBubbleIds.clear();
+      requestDraw();
+    }
+    return;
+  }
   event.preventDefault();
   latest.querySelector(".viewer-search-close, .profile-popup-close, .team-popup-close")?.click();
 });
@@ -1025,22 +1360,15 @@ if (isEditorPage) {
     const pointer = localPointer(event);
     const source = profileAt(pointer.x, pointer.y);
     if (source) {
-      const leadershipStates = Object.values(boardState.teams)
-        .filter((state) => state.leaderId === source.profile.id);
-      if (leadershipStates.length === 0) {
-        interaction = {
-          type: "reorder",
-          source,
-          originalSlot: source.profile.slotIndex,
-          candidate: null,
-          pointerX: pointer.x,
-          pointerY: pointer.y,
-        };
-        requestDraw();
-        return;
-      }
-      leadershipStates.forEach((state) => { state.leaderId = null; });
-      persistBoard();
+      interaction = {
+        type: "reorder",
+        source,
+        originalSlot: source.profile.slotIndex,
+        candidate: null,
+        pointerX: pointer.x,
+        pointerY: pointer.y,
+      };
+      requestDraw();
       return;
     }
     const team = teamAt(pointer.x, pointer.y);

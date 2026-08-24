@@ -1,5 +1,7 @@
 import { loadOrganization } from "./data/organization-source.js?v=boatboard-20260809-79";
 import { loadBoardState } from "./data/board-state.js?v=boatboard-20260811-108";
+import { popupViewportCorrection } from "./popup-visibility.js?v=boatboard-20260822-170";
+import { compactPopupLayoutMedia, compactTouchUiMedia } from "./responsive-layout.js?v=boatboard-20260824-1";
 
 const popup = document.querySelector(".team-popup");
 const closeButton = popup?.querySelector(".team-popup-close");
@@ -14,6 +16,7 @@ let placementLocked = false;
 let ensureVisibleOnPosition = false;
 let selectionSource = "canvas";
 let requestExistingPopupMove = false;
+let checkDirectTeamOcclusion = false;
 const popupTransitionMs = 160;
 const popupInEasing = "cubic-bezier(.22, .7, .28, 1)";
 const popupOutEasing = "cubic-bezier(.72, 0, .78, .3)";
@@ -22,16 +25,21 @@ function initials(name) {
   return name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
-function sizeDescription(element, defaultLines) {
+function sizeDescription(element, defaultLines, options = {}) {
   requestAnimationFrame(() => {
     const styles = getComputedStyle(element);
     const lineHeight = parseFloat(styles.lineHeight);
     const padding = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
     const chrome = padding + parseFloat(styles.borderTopWidth) + parseFloat(styles.borderBottomWidth);
     const textLines = Math.max(1, Math.ceil(Math.max(0, element.scrollHeight - padding) / lineHeight));
-    const visibleLines = textLines >= defaultLines ? Math.min(6, Math.max(defaultLines, textLines)) + .5 : defaultLines;
+    const visibleLines = compactTouchUiMedia.matches
+      ? Math.min(6, Math.max(defaultLines, textLines))
+      : options.exactLines
+        ? Math.min(6, Math.max(defaultLines, textLines))
+        : textLines >= defaultLines ? Math.min(6, Math.max(defaultLines, textLines)) + .5 : defaultLines;
     element.style.height = `${visibleLines * lineHeight + chrome}px`;
     element.style.overflowY = textLines > 6 ? "auto" : "hidden";
+    options.onSized?.({ lineHeight, textLines, visibleLines });
   });
 }
 
@@ -50,18 +58,30 @@ function createAvatar(person) {
   return avatar;
 }
 
-function createMember(person) {
+function createMember(person, isLeader = false) {
   const button = document.createElement("button");
   button.className = "team-popup-member";
+  button.classList.toggle("is-leader", isLeader);
   button.type = "button";
   const name = document.createElement("span");
   name.className = "team-popup-member-name";
   name.textContent = person.name;
   button.append(createAvatar(person), name);
+  if (isLeader) {
+    const label = document.createElement("small");
+    label.className = "team-popup-leader-label";
+    label.textContent = "Líder";
+    button.append(label);
+  }
   button.addEventListener("click", () => {
     dispatchEvent(new CustomEvent("boatboard:select-colleague", {
       detail: { personId: person.id, placement: "auto", source: "team-popup" },
     }));
+    if (compactPopupLayoutMedia.matches) {
+      dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
+        detail: { personId: person.id, fitPopup: true },
+      }));
+    }
   });
   return button;
 }
@@ -82,24 +102,35 @@ function renderTeam(teamId) {
   membersViewport.className = "team-popup-members-viewport";
   const teamMembers = organization.colleagues.filter((person) => person.teamId === teamId)
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }));
-  teamMembers.forEach((person) => members.append(createMember(person)));
   const leader = peopleById.get(boardState?.teams?.[teamId]?.leaderId);
-  if (leader) {
-    const leaderCell = document.createElement("div");
-    leaderCell.className = "team-popup-leader-cell";
-    const label = document.createElement("small");
-    label.className = "team-popup-leader-label";
-    label.textContent = "Líder";
-    leaderCell.append(createMember(leader));
-    members.append(leaderCell, label);
-  }
-  const totalRows = Math.ceil(teamMembers.length / 2) + (leader ? 1 : 0);
-  const visibleRows = Math.max(1, Math.min(6, totalRows));
-  const viewportHeight = (visibleRows + .75) * 52 + visibleRows * 2.88;
+  const listedPeople = [
+    ...teamMembers.filter((person) => person.id !== leader?.id),
+    ...(leader ? [leader] : []),
+  ];
+  listedPeople.forEach((person) => members.append(createMember(person, person.id === leader?.id)));
+  const totalRows = Math.ceil(listedPeople.length / 2);
+  const compactSheetLayout = compactPopupLayoutMedia.matches;
+  const visibleRows = compactSheetLayout
+    ? Math.max(2, Math.min(4, totalRows))
+    : Math.max(1, Math.min(7, totalRows));
+  const partialRow = compactSheetLayout ? .2 : .3;
+  const compactTouchLayout = compactTouchUiMedia.matches;
+  const memberRowHeight = compactTouchLayout ? 38 : 52;
+  const memberRowGap = compactTouchLayout ? 0.96 : compactSheetLayout ? 2.24 : 4.8;
+  const viewportHeight = (visibleRows + partialRow) * memberRowHeight + visibleRows * memberRowGap;
   membersViewport.style.setProperty("--team-member-viewport-height", `${viewportHeight}px`);
   membersViewport.append(members);
   content.append(title, membersViewport, description);
-  sizeDescription(description, 3);
+  sizeDescription(description, 3, {
+    exactLines: !compactSheetLayout,
+    onSized: ({ lineHeight, visibleLines }) => {
+      if (compactSheetLayout) return;
+      const minimumViewportHeight = 1.3 * memberRowHeight + memberRowGap;
+      const descriptionGrowth = Math.max(0, visibleLines - 3) * lineHeight;
+      const adjustedViewportHeight = Math.max(minimumViewportHeight, viewportHeight - descriptionGrowth);
+      membersViewport.style.setProperty("--team-member-viewport-height", `${adjustedViewportHeight}px`);
+    },
+  });
 }
 
 function animateOutgoingPopup() {
@@ -137,23 +168,9 @@ function animatePopupOut() {
 }
 
 function ensureVisible() {
-  const margin = 18;
-  const tolerance = 2;
-  const rectangles = [...document.querySelectorAll(
-    ".profile-popup.is-open:not(.popup-outgoing), .team-popup.is-open:not(.popup-outgoing)",
-  )].map((element) => element.getBoundingClientRect());
-  const rectangle = {
-    left: Math.min(...rectangles.map((item) => item.left)),
-    right: Math.max(...rectangles.map((item) => item.right)),
-    top: Math.min(...rectangles.map((item) => item.top)),
-    bottom: Math.max(...rectangles.map((item) => item.bottom)),
-  };
+  const rectangle = popup.getBoundingClientRect();
   const searchRectangle = document.querySelector(".viewer-search.is-open .viewer-search-panel")?.getBoundingClientRect();
-  const leftBoundary = searchRectangle ? searchRectangle.right + margin : margin;
-  const dx = rectangle.left < leftBoundary - tolerance ? leftBoundary - rectangle.left
-    : rectangle.right > innerWidth - margin + tolerance ? innerWidth - margin - rectangle.right : 0;
-  const dy = rectangle.top < margin - tolerance ? margin - rectangle.top
-    : rectangle.bottom > innerHeight - margin + tolerance ? innerHeight - margin - rectangle.bottom : 0;
+  const { dx, dy } = popupViewportCorrection(rectangle, searchRectangle);
   if (dx || dy) dispatchEvent(new CustomEvent("boatboard:ensure-popup-visible", { detail: { dx, dy } }));
 }
 
@@ -208,6 +225,7 @@ function bestPlacement(x, y, radius, contentCenterX, contentCenterY, ignoreProfi
 
 function closePopup() {
   selectedTeamId = null;
+  checkDirectTeamOcclusion = false;
   placementLocked = false;
   delete popup.dataset.openOrder;
   animatePopupOut();
@@ -215,8 +233,24 @@ function closePopup() {
   dispatchEvent(new CustomEvent("boatboard:close-team"));
 }
 
+function compactTeamRequiresTopLeftProfile() {
+  if (!compactPopupLayoutMedia.matches) return false;
+  const profilePopup = document.querySelector(".profile-popup.is-open:not(.popup-outgoing)");
+  if (!profilePopup) return false;
+  if (document.querySelector(".viewer-search.is-open .viewer-search-panel")) return true;
+  if (profilePopup.dataset.placement?.startsWith("bottom")) return true;
+  const profileRectangle = profilePopup.getBoundingClientRect();
+  const teamTop = popup.offsetTop;
+  const teamLeft = popup.offsetLeft;
+  const teamRight = teamLeft + popup.offsetWidth;
+  return profileRectangle.bottom > teamTop
+    && profileRectangle.right > teamLeft
+    && profileRectangle.left < teamRight;
+}
+
 if (popup) {
   addEventListener("boatboard:select-team", (event) => {
+    if (document.body.classList.contains("editor-mode")) return;
     const teamId = event.detail?.teamId ?? null;
     if (teamId === selectedTeamId && popup.classList.contains("is-open")) return closePopup();
     if (selectedTeamId && popup.classList.contains("is-open")) {
@@ -228,18 +262,53 @@ if (popup) {
     if (teamId) {
       window.boatboardUiLayerSequence = (window.boatboardUiLayerSequence ?? 0) + 1;
       popup.dataset.openOrder = String(window.boatboardUiLayerSequence);
+      popup.style.zIndex = String(20 + window.boatboardUiLayerSequence);
     }
     selectionSource = event.detail?.source ?? "canvas";
+    checkDirectTeamOcclusion = compactPopupLayoutMedia.matches && selectionSource === "canvas";
     requestExistingPopupMove = selectionSource === "profile-popup";
     if (teamId) renderTeam(teamId);
-    ensureVisibleOnPosition = Boolean(document.querySelector(".profile-popup.is-open:not(.popup-outgoing)"));
+    ensureVisibleOnPosition = Boolean(teamId);
     preferredPlacement = event.detail?.placement ?? preferredPlacement;
     placementLocked = Boolean(event.detail?.placement);
     popup.setAttribute("aria-hidden", String(!teamId));
-    if (teamId) animatePopupIn();
+    if (teamId) {
+      animatePopupIn();
+      if (compactPopupLayoutMedia.matches) {
+        requestAnimationFrame(() => {
+          if (!popup.classList.contains("is-open")) return;
+          if (compactTeamRequiresTopLeftProfile()) {
+            dispatchEvent(new CustomEvent("boatboard:reanchor-profile-top-left"));
+          }
+        });
+      }
+      if (compactPopupLayoutMedia.matches && selectionSource !== "canvas") {
+        requestAnimationFrame(() => {
+          if (selectedTeamId !== teamId || !popup.classList.contains("is-open")) return;
+          dispatchEvent(new CustomEvent("boatboard:focus-team", {
+            detail: { teamId, source: selectionSource },
+          }));
+        });
+      }
+    }
   });
   addEventListener("boatboard:team-position", (event) => {
     if (!selectedTeamId || event.detail?.teamId !== selectedTeamId) return;
+    if (compactPopupLayoutMedia.matches) {
+      ensureVisibleOnPosition = false;
+      requestExistingPopupMove = false;
+      if (checkDirectTeamOcclusion) {
+        checkDirectTeamOcclusion = false;
+        const bubbleBottom = event.detail.y + Math.max(0, event.detail.radius);
+        requestAnimationFrame(() => {
+          if (!popup.classList.contains("is-open") || bubbleBottom <= popup.offsetTop) return;
+          dispatchEvent(new CustomEvent("boatboard:focus-team", {
+            detail: { teamId: selectedTeamId, source: "covered-canvas" },
+          }));
+        });
+      }
+      return;
+    }
     const radius = Math.max(0, event.detail.radius);
     const cornerOffset = radius / Math.SQRT2;
     const x = event.detail.x;

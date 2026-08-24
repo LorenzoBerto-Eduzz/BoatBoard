@@ -1,5 +1,6 @@
 import { loadOrganization } from "./data/organization-source.js?v=boatboard-20260809-63";
 import { loadBoardState } from "./data/board-state.js?v=boatboard-20260811-108";
+import { compactPopupLayoutMedia } from "./responsive-layout.js?v=boatboard-20260824-1";
 
 const search = document.querySelector(".viewer-search");
 const toggle = search?.querySelector(".viewer-search-toggle");
@@ -7,7 +8,6 @@ const panel = search?.querySelector(".viewer-search-panel");
 const closeButton = search?.querySelector(".viewer-search-close");
 const input = search?.querySelector("input");
 const results = search?.querySelector(".viewer-search-results");
-
 if (search) {
   const organization = await loadOrganization();
   let boardState = await loadBoardState();
@@ -45,17 +45,20 @@ if (search) {
       row.dataset.searchTerms = normalize(`${person.name} ${teamName}`);
       const name = document.createElement("span");
       name.className = "viewer-search-name";
-      name.textContent = person.name;
+      const nameText = document.createElement("span");
+      nameText.className = "viewer-search-name-text";
+      nameText.textContent = person.name;
+      name.append(nameText);
       const team = document.createElement("span");
       team.className = "viewer-search-team";
       team.textContent = teamName;
       row.append(createAvatar(person), name, team);
       row.addEventListener("click", () => {
-        dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
-          detail: { personId: person.id, scale: .5 },
-        }));
         dispatchEvent(new CustomEvent("boatboard:select-colleague", {
           detail: { personId: person.id, placement: "top-left", source: "search" },
+        }));
+        dispatchEvent(new CustomEvent("boatboard:focus-colleague", {
+          detail: { personId: person.id, fitPopup: true },
         }));
       });
       results.append(row);
@@ -66,17 +69,19 @@ if (search) {
     results.querySelectorAll(".viewer-search-result").forEach((row) => {
       const teamIsPlaced = boardState?.teams?.[row.dataset.teamId]?.placed === true;
       const hidden = !teamIsPlaced || !row.dataset.searchTerms.includes(query);
-      clearTimeout(row.filterTimer);
       if (hidden) {
+        row.classList.remove("is-restoring");
         row.setAttribute("aria-hidden", "true");
         row.tabIndex = -1;
         row.classList.add("is-filtered-out");
-        row.filterTimer = setTimeout(() => row.classList.add("is-collapsed"), 120);
+        row.classList.add("is-collapsed");
       } else {
         row.removeAttribute("aria-hidden");
         row.tabIndex = 0;
+        row.classList.add("is-restoring");
         row.classList.remove("is-collapsed");
-        requestAnimationFrame(() => row.classList.remove("is-filtered-out"));
+        row.classList.remove("is-filtered-out");
+        requestAnimationFrame(() => row.classList.remove("is-restoring"));
       }
     });
   }
@@ -93,6 +98,16 @@ if (search) {
       input.focus({ preventScroll: true });
       const margin = 18;
       const panelRectangle = panel.getBoundingClientRect();
+      if (compactPopupLayoutMedia.matches) {
+        const profileRectangle = document.querySelector(
+          ".profile-popup.is-open:not(.popup-outgoing)",
+        )?.getBoundingClientRect();
+        const profileOverlapsPanel = profileRectangle
+          && Math.min(profileRectangle.right, panelRectangle.right) > Math.max(profileRectangle.left, panelRectangle.left)
+          && Math.min(profileRectangle.bottom, panelRectangle.bottom) > Math.max(profileRectangle.top, panelRectangle.top);
+        if (profileOverlapsPanel) dispatchEvent(new CustomEvent("boatboard:search-opened"));
+        return;
+      }
       const activePopups = document.querySelectorAll(
         ".profile-popup.is-open:not(.popup-outgoing), .team-popup.is-open:not(.popup-outgoing)",
       );
@@ -116,7 +131,13 @@ if (search) {
     filterResults();
   }
 
-  toggle.addEventListener("click", openSearch);
+  toggle.addEventListener("click", () => {
+    toggle.classList.remove("is-pressing");
+    void toggle.offsetWidth;
+    toggle.classList.add("is-pressing");
+    setTimeout(() => toggle.classList.remove("is-pressing"), 150);
+    search.classList.contains("is-open") ? closeSearch() : openSearch();
+  });
   closeButton.addEventListener("click", closeSearch);
   input.addEventListener("input", filterResults);
   addEventListener("boatboard:board-changed", (event) => {

@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
     <meta name="theme-color" content="#182027" />
     <title>BoatBoard</title>
-    <link rel="stylesheet" href="styles.css?v=boatboard-20260818-152" />
+    <link rel="stylesheet" href="styles.css?v=boatboard-20260824-247" />
   </head>
   <body>
     <main class="board" aria-label="BoatBoard organization map">
@@ -14,9 +14,11 @@
       <canvas class="organization-canvas" aria-label="Teams and colleagues"></canvas>
       <header class="brand">
         <span class="brand-company"></span>
-        <small>Boat Board</small>
+        <small class="brand-runtime" hidden>dev</small>
       </header>
       <section class="viewer-search" aria-label="Find a colleague">
+        <button class="compact-header-placeholder" type="button" aria-hidden="true" tabindex="-1"></button>
+        <button class="compact-header-placeholder" type="button" aria-hidden="true" tabindex="-1"></button>
         <button class="viewer-search-toggle" type="button" aria-label="Search colleagues" aria-expanded="false">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75" /><path d="m12 12 4 4" /></svg>
         </button>
@@ -45,9 +47,9 @@
         <div class="team-popup-content"></div>
       </aside>
     </main>
-    <script type="module" src="app.js?v=boatboard-20260814-151"></script>
-    <script type="module" src="viewer-search.js?v=boatboard-20260818-152"></script>
-    <script type="module" src="profile-popup.js?v=boatboard-20260818-152"></script>
-    <script type="module" src="team-popup.js?v=boatboard-20260818-152"></script>
+    <script type="module" src="app.js?v=boatboard-20260824-195"></script>
+    <script type="module" src="viewer-search.js?v=boatboard-20260824-162"></script>
+    <script type="module" src="profile-popup.js?v=boatboard-20260824-186"></script>
+    <script type="module" src="team-popup.js?v=boatboard-20260824-194"></script>
   </body>
 </html>

@@ -4,6 +4,7 @@ const panel = directory?.querySelector(".editor-panel");
 const teamsContainer = directory?.querySelector(".data-teams");
 const status = directory?.querySelector(".data-status");
 const workbookInput = directory?.querySelector(".data-workbook-input");
+const boardTitleInput = directory?.querySelector(".board-company-input");
 let organization;
 let boardState;
 let saveTimer;
@@ -192,6 +193,7 @@ async function openPanel() {
     ]);
     organization.colleagues.forEach((person) => { person.imageFilename = person.imageUrl?.split("/").pop() ?? ""; });
   }
+  boardTitleInput.value = organization.companyName;
   renderTeams();
   document.body.classList.add("editor-mode");
   dispatchEvent(new CustomEvent("boatboard:enter-edit-mode"));
@@ -210,6 +212,11 @@ async function closePanel() {
 }
 
 toggle?.addEventListener("click", openPanel);
+boardTitleInput?.addEventListener("input", () => {
+  if (!organization) return;
+  organization.companyName = boardTitleInput.value;
+  changed();
+});
 addEventListener("boatboard:board-changed", (event) => {
   if (!event.detail?.boardState) return;
   boardState = event.detail.boardState;
@@ -236,6 +243,7 @@ workbookInput?.addEventListener("change", async () => {
   if (response.ok) {
     organization = await fetch("/api/organization", { cache: "no-store" }).then((result) => result.json());
     organization.colleagues.forEach((person) => { person.imageFilename = person.imageUrl?.split("/").pop() ?? ""; });
+    boardTitleInput.value = organization.companyName;
     changeVersion = savedVersion = 0;
     dispatchEvent(new CustomEvent("boatboard:organization-changed", {
       detail: { organization: structuredClone(organization) },

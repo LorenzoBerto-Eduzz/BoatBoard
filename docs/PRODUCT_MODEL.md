@@ -48,10 +48,11 @@ The tracked `project/instance_template/` is empty and seeds ignored `project/pri
 ## Read-Only Viewer
 
 - Search lists colleagues alphabetically and matches both colleague and team names. Results show profile, colleague name, and a subtle bottom-right team label.
-- Profile hover previews open after 0.4 seconds; clicking a preview promotes it seamlessly to a persistent selection with a 4px ring.
+- Profiles open a persistent selected popup on click and display a 4px selection ring; automatic hover popups are intentionally disabled.
 - Anchored profile and team popups block input from reaching the board, avoid each other and the search panel, remain attached while the board moves, and use short anchor-origin transitions. Escape closes the most recently opened UI layer.
-- The profile popup shows avatar, name, WhatsApp, Discord, email, a dynamically sized description, the colleague's own team, and any other teams they lead.
-- The team popup shows a wrapped team title, two-column alphabetical member directory, isolated leader row/tag, and dynamically sized description. Clicking a member opens that colleague.
+- The profile popup shows avatar, name, copyable WhatsApp/Discord/email contacts, a dynamically sized description, the colleague's own team, and any other teams they lead. Clicking a real avatar opens its image viewer.
+- The team popup shows a wrapped team title, two-column alphabetical member directory with the leader last and tagged, and dynamically sized description. Clicking a member opens that colleague.
+- Wide desktop, narrow desktop, and touch/mobile use one shared application with responsive presentation rules. Compact layouts use an adaptive board focus point, right-side Search, and a bottom team sheet; narrow desktop shares the mobile focus/reanchoring behavior.
 
 ## Next And Deferred
 
