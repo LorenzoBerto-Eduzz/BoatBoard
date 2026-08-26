@@ -53,6 +53,13 @@ Tracked application defaults and the seed workbook must remain generic and empty
 - Touch interaction supports two-finger pinch zoom and one-finger pan without browser-page zoom. Mobile viewport height is stabilized so the virtual keyboard does not relayout the board chrome.
 - CSS uses shared panel, header-button, typography, and spacing tokens; responsive sections override only presentation differences.
 
+## Color Themes
+
+- The header control immediately beside Search toggles the shared color theme in viewer and editor. Dark remains the default for a fresh browser; the explicit choice persists locally under `boatboard:color-theme`.
+- Dark mode retains the established deep blue-black presentation. In dark mode the theme control shows a thin sun; in light mode it shows the same shared geometric four-point star across wide desktop, narrow desktop, and mobile.
+- `project/theme-controller.js` owns theme persistence, root state, accessible labels, and browser theme color. CSS owns DOM colors, while `canvasPalette()` in `app.js` owns theme-aware bubbles, links, profile borders, selections, marquee, and editor rotation handles. Theme changes rebuild cached team bitmaps and redraw immediately.
+- The first light-mode palette is tuned primarily for wide desktop: near-white with an extremely subtle warm floor, a long pale yellow-gold edge frame, a dark ocean-blue title, light neutral-gray connections, nearly invisible bubble interiors, and bubble/profile edges that share the connection color. Narrow desktop and mobile still need a dedicated light-mode visual pass; they intentionally retain shorter/subtler background framing.
+
 ## Viewer Experience
 
 - The read-only viewer initially fits every placed bubble within the centered viewport square and supports smooth free pan/zoom without triggering browser zoom.
@@ -66,7 +73,7 @@ Tracked application defaults and the seed workbook must remain generic and empty
 
 ## Next Work
 
-The standalone local MVP has been presented to the technical team. Continue fine visual and usability work in the source project, test frequently through the development instance, and regenerate the independent standalone preview periodically. Basic manual team/colleague editing remains sufficient for this phase; image upload and description/contact authoring UI are intentionally deferred.
+The standalone local MVP has been presented to the technical team. Continue fine visual and usability work in the source project, beginning with the remaining narrow-desktop/mobile light-theme palette pass and the final unused header control, then regenerate and test the independent standalone preview. Basic manual team/colleague editing remains sufficient for this phase; image upload and description/contact authoring UI are intentionally deferred.
 
 Before deployment, obtain exact technical-team decisions for company-approved private hosting, authentication/authorization, authoritative organization data, image storage, ingestion/refresh behavior, and ownership of team/leader/layout administration. Preserve the replaceable data adapter and the separation among organization data, board state, rendering, and editing so the eventual integration does not require rewriting the viewer. A versioned reusable GitHub Release remains later work.
 

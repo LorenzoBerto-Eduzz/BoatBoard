@@ -53,6 +53,7 @@ The tracked `project/instance_template/` is empty and seeds ignored `project/pri
 - The profile popup shows avatar, name, copyable WhatsApp/Discord/email contacts, a dynamically sized description, the colleague's own team, and any other teams they lead. Clicking a real avatar opens its image viewer.
 - The team popup shows a wrapped team title, two-column alphabetical member directory with the leader last and tagged, and dynamically sized description. Clicking a member opens that colleague.
 - Wide desktop, narrow desktop, and touch/mobile use one shared application with responsive presentation rules. Compact layouts use an adaptive board focus point, right-side Search, and a bottom team sheet; narrow desktop shares the mobile focus/reanchoring behavior.
+- Viewer and editor share a locally persisted dark/light theme toggle beside Search. Theme-aware CSS and Canvas palettes keep every responsive presentation on the same semantic color system while allowing explicit presentation-level refinements; dark is the fresh-browser default.
 
 ## Next And Deferred
 

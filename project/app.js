@@ -65,6 +65,33 @@ const fallbackProfileColors = [
   ["#a78ac8", "#654d8d"], ["#dc87ad", "#914e73"], ["#8299c9", "#465d8e"],
 ];
 
+function canvasPalette() {
+  const light = document.documentElement.dataset.theme === "light";
+  return light ? {
+    bubble: [
+      "rgba(113, 126, 132, .002)", "rgba(113, 126, 132, .004)", "rgba(113, 126, 132, .025)",
+      "rgba(113, 126, 132, .065)", "rgba(113, 126, 132, .11)",
+    ],
+    profileBorder: "rgba(113, 126, 132, .11)",
+    selection: "rgba(50, 82, 96, .24)",
+    marqueeFill: "rgba(65, 113, 133, .1)",
+    marqueeStroke: "rgba(48, 94, 113, .58)",
+    connection: "rgba(113, 126, 132, .11)",
+    rotation: "rgba(57, 82, 93, .42)",
+  } : {
+    bubble: [
+      "rgba(126, 154, 167, .024)", "rgba(126, 154, 167, .03)", "rgba(119, 151, 166, .038)",
+      "rgba(154, 181, 192, .125)", "rgba(170, 194, 203, .19)",
+    ],
+    profileBorder: "rgba(13, 21, 26, .9)",
+    selection: "rgba(158, 183, 192, .16)",
+    marqueeFill: "rgba(116, 163, 181, .08)",
+    marqueeStroke: "rgba(157, 195, 208, .56)",
+    connection: "rgba(70, 86, 94, .224)",
+    rotation: "rgba(151, 169, 177, .24)",
+  };
+}
+
 if (!editActive) {
   addEventListener("wheel", (event) => {
     if (event.ctrlKey) event.preventDefault();
@@ -179,12 +206,13 @@ function createTeamBitmap(team) {
   const bitmapContext = bitmap.getContext("2d", { alpha: true });
   bitmapContext.scale(teamCacheResolutionScale, teamCacheResolutionScale);
   const center = team.radius;
+  const palette = canvasPalette();
   const bubbleGradient = bitmapContext.createRadialGradient(center, center, 0, center, center, team.radius);
-  bubbleGradient.addColorStop(0, "rgba(126, 154, 167, .024)");
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 42) / team.radius), "rgba(126, 154, 167, .03)");
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 25) / team.radius), "rgba(119, 151, 166, .038)");
-  bubbleGradient.addColorStop(Math.max(0, (team.radius - 3) / team.radius), "rgba(154, 181, 192, .125)");
-  bubbleGradient.addColorStop(1, "rgba(170, 194, 203, .19)");
+  bubbleGradient.addColorStop(0, palette.bubble[0]);
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 42) / team.radius), palette.bubble[1]);
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 25) / team.radius), palette.bubble[2]);
+  bubbleGradient.addColorStop(Math.max(0, (team.radius - 3) / team.radius), palette.bubble[3]);
+  bubbleGradient.addColorStop(1, palette.bubble[4]);
   bitmapContext.fillStyle = bubbleGradient;
   bitmapContext.beginPath();
   bitmapContext.arc(center, center, team.radius, 0, Math.PI * 2);
@@ -211,7 +239,7 @@ function createTeamBitmap(team) {
     bitmapContext.restore();
     bitmapContext.beginPath();
     bitmapContext.arc(x, y, profileRadius, 0, Math.PI * 2);
-    bitmapContext.strokeStyle = "rgba(13, 21, 26, .9)";
+    bitmapContext.strokeStyle = palette.profileBorder;
     bitmapContext.lineWidth = 1;
     bitmapContext.stroke();
     if (!profile.imageElement) {
@@ -467,7 +495,7 @@ function drawSelectedProfileRing() {
   context.save();
   context.beginPath();
   context.arc(sceneToScreenX(position.x), sceneToScreenY(position.y), radius, 0, Math.PI * 2);
-  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.strokeStyle = canvasPalette().selection;
   context.lineWidth = 4;
   context.stroke();
   context.restore();
@@ -481,7 +509,7 @@ function drawSelectedTeamRing() {
   context.save();
   context.beginPath();
   context.arc(sceneToScreenX(state.x), sceneToScreenY(state.y), team.radius * sceneScale() + selectionRingOffset(7), 0, Math.PI * 2);
-  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.strokeStyle = canvasPalette().selection;
   context.lineWidth = 4;
   context.stroke();
   context.restore();
@@ -491,7 +519,7 @@ function drawEditorBubbleSelection() {
   if (!editActive || selectedBubbleIds.size === 0) return;
   const scale = sceneScale();
   context.save();
-  context.strokeStyle = "rgba(158, 183, 192, .16)";
+  context.strokeStyle = canvasPalette().selection;
   context.lineWidth = 4;
   selectedBubbleIds.forEach((teamId) => {
     const team = teamsById.get(teamId);
@@ -511,8 +539,9 @@ function drawMarqueeSelection() {
   const width = Math.abs(interaction.currentX - interaction.startX);
   const height = Math.abs(interaction.currentY - interaction.startY);
   context.save();
-  context.fillStyle = "rgba(116, 163, 181, .08)";
-  context.strokeStyle = "rgba(157, 195, 208, .56)";
+  const palette = canvasPalette();
+  context.fillStyle = palette.marqueeFill;
+  context.strokeStyle = palette.marqueeStroke;
   context.lineWidth = 1.5;
   context.fillRect(left, top, width, height);
   context.strokeRect(left + .75, top + .75, Math.max(0, width - 1.5), Math.max(0, height - 1.5));
@@ -589,7 +618,7 @@ function drawLineBetweenProfileAndTeam(sourceTeam, profile, targetTeam) {
   context.beginPath();
   context.moveTo(startCenterX + unitX * profileRadius, startCenterY + unitY * profileRadius);
   context.lineTo(targetCenterX - unitX * teamRadius, targetCenterY - unitY * teamRadius);
-  context.strokeStyle = "rgba(70, 86, 94, .224)";
+  context.strokeStyle = canvasPalette().connection;
   context.stroke();
 }
 
@@ -626,7 +655,7 @@ function drawLeadershipLinks() {
       context.beginPath();
       context.moveTo(startX + dx / distance * radius, startY + dy / distance * radius);
       context.lineTo(interaction.pointerX, interaction.pointerY);
-      context.strokeStyle = "rgba(70, 86, 94, .224)";
+      context.strokeStyle = canvasPalette().connection;
       context.stroke();
     }
   }
@@ -634,12 +663,13 @@ function drawLeadershipLinks() {
 }
 
 function drawBubble(team, centerX, centerY, radius, scale) {
+  const palette = canvasPalette();
   const gradient = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-  gradient.addColorStop(0, "rgba(126, 154, 167, .024)");
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 42 * scale)) / radius), "rgba(126, 154, 167, .03)");
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 25 * scale)) / radius), "rgba(119, 151, 166, .038)");
-  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 3 * scale)) / radius), "rgba(154, 181, 192, .125)");
-  gradient.addColorStop(1, "rgba(170, 194, 203, .19)");
+  gradient.addColorStop(0, palette.bubble[0]);
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 42 * scale)) / radius), palette.bubble[1]);
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 25 * scale)) / radius), palette.bubble[2]);
+  gradient.addColorStop(Math.max(0, (radius - Math.min(radius, 3 * scale)) / radius), palette.bubble[3]);
+  gradient.addColorStop(1, palette.bubble[4]);
   context.fillStyle = gradient;
   context.beginPath();
   context.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -672,7 +702,7 @@ function drawProfile(team, profile, scale, overridePosition = null) {
   context.beginPath();
   context.arc(x, y, radius, 0, Math.PI * 2);
   if (radius >= 3) {
-    context.strokeStyle = "rgba(13, 21, 26, .9)";
+    context.strokeStyle = canvasPalette().profileBorder;
     context.lineWidth = Math.max(.7, scale);
     context.stroke();
   }
@@ -696,7 +726,7 @@ function drawRotationHandles() {
   context.lineCap = "round";
   context.lineJoin = "round";
   context.lineWidth = 1.35;
-  context.strokeStyle = "rgba(151, 169, 177, .24)";
+  context.strokeStyle = canvasPalette().rotation;
   renderedTeams.forEach((team) => {
     if (!teamState(team).placed) return;
     const handle = rotationHandlePosition(team);
@@ -1332,6 +1362,10 @@ function stopInteraction(event) {
 
 addEventListener("pointerup", stopInteraction);
 addEventListener("pointercancel", stopInteraction);
+addEventListener("boatboard:theme-changed", () => {
+  renderedTeams.forEach((team) => { team.bitmap = createTeamBitmap(team); });
+  requestDraw();
+});
 addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   const layers = [...document.querySelectorAll(

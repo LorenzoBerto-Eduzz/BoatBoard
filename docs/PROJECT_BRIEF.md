@@ -11,7 +11,7 @@ BoatBoard helps colleagues discover the organization by representing teams as bu
 
 ## Current Scope
 
-`index.html` is a read-only responsive viewer with immediate colleague/team search, smooth focus, selection, and anchored colleague/team details. `editor.html` reuses the complete viewer and toggles local authoring for teams, colleagues, single/marquee placement, arrangement rotation, leadership, and profile ordering. Wide desktop, narrow desktop, and touch/mobile are presentations of the same shared application. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
+`index.html` is a read-only responsive viewer with immediate colleague/team search, smooth focus, selection, anchored colleague/team details, and a persistent dark/light presentation toggle. `editor.html` reuses the complete viewer and toggles local authoring for teams, colleagues, single/marquee placement, arrangement rotation, leadership, and profile ordering. Wide desktop, narrow desktop, and touch/mobile are presentations of the same shared application. The instance is stored as XLSX organization data, an images folder, and JSON visual state. No real company data is tracked in Git.
 
 ## Run And Validate
 

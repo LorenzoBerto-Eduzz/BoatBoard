@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
     <meta name="theme-color" content="#182027" />
     <title>BoatBoard</title>
-    <link rel="stylesheet" href="styles.css?v=boatboard-20260824-247" />
+    <link rel="stylesheet" href="styles.css?v=boatboard-20260825-274" />
   </head>
   <body>
     <main class="board" aria-label="BoatBoard organization map">
@@ -17,8 +17,11 @@
         <small class="brand-runtime" hidden>dev</small>
       </header>
       <section class="viewer-search" aria-label="Find a colleague">
-        <button class="compact-header-placeholder" type="button" aria-hidden="true" tabindex="-1"></button>
-        <button class="compact-header-placeholder" type="button" aria-hidden="true" tabindex="-1"></button>
+        <button class="compact-header-placeholder compact-header-future" type="button" aria-hidden="true" tabindex="-1"></button>
+        <button class="compact-header-placeholder theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="false">
+          <svg class="theme-icon-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="4" /><path d="M10 2.35v1.3M10 16.35v1.3M2.35 10h1.3M16.35 10h1.3M4.6 4.6l.92.92M14.48 14.48l.92.92M15.4 4.6l-.92.92M5.52 14.48l-.92.92" /></svg>
+          <svg class="theme-icon-star" viewBox="0 0 20 20" aria-hidden="true"><path d="m10 3 1.65 5.35L17 10l-5.35 1.65L10 17l-1.65-5.35L3 10l5.35-1.65Z" /></svg>
+        </button>
         <button class="viewer-search-toggle" type="button" aria-label="Search colleagues" aria-expanded="false">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75" /><path d="m12 12 4 4" /></svg>
         </button>
@@ -47,7 +50,8 @@
         <div class="team-popup-content"></div>
       </aside>
     </main>
-    <script type="module" src="app.js?v=boatboard-20260824-195"></script>
+    <script type="module" src="theme-controller.js?v=boatboard-20260824-1"></script>
+    <script type="module" src="app.js?v=boatboard-20260825-199"></script>
     <script type="module" src="viewer-search.js?v=boatboard-20260824-162"></script>
     <script type="module" src="profile-popup.js?v=boatboard-20260824-186"></script>
     <script type="module" src="team-popup.js?v=boatboard-20260824-194"></script>
