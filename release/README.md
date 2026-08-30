@@ -12,7 +12,7 @@ BoatBoard starts invisibly, selects an available local address beginning at `htt
 
 The complete folder is portable. Stop BoatBoard before moving it, move the whole folder, and then launch `BoatBoard.exe` from the new location. Its local data moves with the folder.
 
-The automatically opened `127.0.0.1` address is available only on that computer. Real-phone testing requires intentionally launching the server on the computer's current LAN address and opening that LAN address from a phone on the same Wi-Fi. LAN mode is not persistent and exposes the local board to other reachable devices, so use it only on an appropriate trusted network.
+The automatically opened `127.0.0.1` address is available only on that computer. Real-phone testing requires intentionally launching the server on the computer's current LAN address. In LAN mode, BoatBoard automatically opens that same LAN URL on the laptop; type or share that exact URL on a phone connected to the same Wi-Fi. LAN mode is not persistent and exposes the local board to other reachable devices, so use it only on an appropriate trusted network.
 
 ## Local Data
 

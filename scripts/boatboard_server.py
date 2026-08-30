@@ -310,17 +310,23 @@ class BoatBoardHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": str(error)}, 400)
 
 
+def browser_url(host: str, port: int, page: str = "/") -> str:
+    browser_host = "127.0.0.1" if host in {"0.0.0.0", "::", "::0"} else host
+    if ":" in browser_host and not browser_host.startswith("["):
+        browser_host = f"[{browser_host}]"
+    return f"http://{browser_host}:{port}{page}"
+
+
 def open_existing_server(page: str, host: str) -> bool:
     try:
         state = json.loads(SERVER_STATE.read_text(encoding="utf-8"))
         port = int(state["port"])
-        if state.get("host", "127.0.0.1") != host:
-            return False
-        with urlopen(f"http://127.0.0.1:{port}/api/health", timeout=.6) as response:
+        running_host = state.get("host", "127.0.0.1")
+        with urlopen(browser_url(running_host, port, "/api/health"), timeout=.6) as response:
             health = json.loads(response.read().decode("utf-8"))
         if health.get("app") != "BoatBoard" or health.get("instance") != str(INSTANCE.resolve()):
             return False
-        webbrowser.open(f"http://127.0.0.1:{port}{page}")
+        webbrowser.open(browser_url(running_host, port, page))
         return True
     except Exception:
         return False
@@ -344,10 +350,10 @@ if __name__ == "__main__":
     preferred_port = int(os.environ.get("BOATBOARD_PORT", "4173"))
     server, port = create_server(preferred_port, host)
     SERVER_STATE.write_text(json.dumps({"pid": os.getpid(), "port": port, "host": host}, indent=2) + "\n", encoding="utf-8")
-    print(f"BoatBoard: http://127.0.0.1:{port}/")
-    print(f"Editor:    http://127.0.0.1:{port}/editor.html")
+    print(f"BoatBoard: {browser_url(host, port)}")
+    print(f"Editor:    {browser_url(host, port, '/editor.html')}")
     if "--no-browser" not in sys.argv:
-        webbrowser.open(f"http://127.0.0.1:{port}{requested_page}")
+        webbrowser.open(browser_url(host, port, requested_page))
     try:
         server.serve_forever()
     finally:
