@@ -278,7 +278,9 @@ if (popup) {
         requestAnimationFrame(() => {
           if (!popup.classList.contains("is-open")) return;
           if (compactTeamRequiresTopLeftProfile()) {
-            dispatchEvent(new CustomEvent("boatboard:reanchor-profile-top-left"));
+            dispatchEvent(new CustomEvent("boatboard:reanchor-profile-top-left", {
+              detail: { precomputedFocus: selectionSource !== "canvas" },
+            }));
           }
         });
       }

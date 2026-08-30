@@ -132,10 +132,6 @@ if (search) {
   }
 
   toggle.addEventListener("click", () => {
-    toggle.classList.remove("is-pressing");
-    void toggle.offsetWidth;
-    toggle.classList.add("is-pressing");
-    setTimeout(() => toggle.classList.remove("is-pressing"), 150);
     search.classList.contains("is-open") ? closeSearch() : openSearch();
   });
   closeButton.addEventListener("click", closeSearch);

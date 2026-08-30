@@ -58,6 +58,7 @@ let previewProfileId = null;
 let hoverCandidateId = null;
 let hoverTimer = null;
 let organizationRefreshVersion = 0;
+let touchPressedButton = null;
 const fallbackProfileColors = [
   ["#e4bd5e", "#8f6424"], ["#f0d968", "#a48727"], ["#5c86b9", "#2b456f"],
   ["#78c8df", "#367c9d"], ["#df817d", "#944a50"], ["#7bc27a", "#3d7b48"],
@@ -67,19 +68,23 @@ const fallbackProfileColors = [
 
 function canvasPalette() {
   const light = document.documentElement.dataset.theme === "light";
+  const touch = compactTouchUiMedia.matches;
   return light ? {
     bubble: [
-      "rgba(113, 126, 132, .002)", "rgba(113, 126, 132, .004)", "rgba(113, 126, 132, .025)",
-      "rgba(113, 126, 132, .065)", "rgba(113, 126, 132, .11)",
+      "rgba(113, 126, 132, .0005)", "rgba(113, 126, 132, .0015)", "rgba(113, 126, 132, .012)",
+      "rgba(113, 126, 132, .068)", "rgba(113, 126, 132, .12)",
     ],
     profileBorder: "rgba(113, 126, 132, .11)",
-    selection: "rgba(50, 82, 96, .24)",
+    selection: `rgba(92, 105, 111, ${touch ? .099 : .135})`,
     marqueeFill: "rgba(65, 113, 133, .1)",
     marqueeStroke: "rgba(48, 94, 113, .58)",
-    connection: "rgba(113, 126, 132, .11)",
+    connection: `rgba(113, 126, 132, ${touch ? .077 : .0935})`,
     rotation: "rgba(57, 82, 93, .42)",
   } : {
-    bubble: [
+    bubble: touch ? [
+      "rgba(126, 154, 167, .0192)", "rgba(126, 154, 167, .024)", "rgba(119, 151, 166, .0304)",
+      "rgba(154, 181, 192, .1)", "rgba(170, 194, 203, .152)",
+    ] : [
       "rgba(126, 154, 167, .024)", "rgba(126, 154, 167, .03)", "rgba(119, 151, 166, .038)",
       "rgba(154, 181, 192, .125)", "rgba(170, 194, 203, .19)",
     ],
@@ -87,7 +92,7 @@ function canvasPalette() {
     selection: "rgba(158, 183, 192, .16)",
     marqueeFill: "rgba(116, 163, 181, .08)",
     marqueeStroke: "rgba(157, 195, 208, .56)",
-    connection: "rgba(70, 86, 94, .224)",
+    connection: `rgba(70, 86, 94, ${touch ? .1501 : .224})`,
     rotation: "rgba(151, 169, 177, .24)",
   };
 }
@@ -99,6 +104,21 @@ if (!editActive) {
   addEventListener("gesturestart", (event) => event.preventDefault(), { capture: true, passive: false });
   addEventListener("gesturechange", (event) => event.preventDefault(), { capture: true, passive: false });
 }
+
+addEventListener("pointerdown", (event) => {
+  if (event.pointerType !== "touch" || !(event.target instanceof Element)) return;
+  touchPressedButton?.classList.remove("is-touch-pressing");
+  touchPressedButton = event.target.closest("button");
+  touchPressedButton?.classList.add("is-touch-pressing");
+}, { capture: true });
+
+const clearTouchPressedButton = () => {
+  touchPressedButton?.classList.remove("is-touch-pressing");
+  touchPressedButton = null;
+};
+addEventListener("pointerup", clearTouchPressedButton, { capture: true });
+addEventListener("pointercancel", clearTouchPressedButton, { capture: true });
+addEventListener("blur", clearTouchPressedButton);
 
 function initials(name) {
   return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -366,9 +386,10 @@ function fitPlacedBubbles() {
     Math.max(1, viewport.width - margin * 2) / contentWidth,
     Math.max(1, viewport.height - margin * 2) / contentHeight,
   );
-  const fittedSceneScale = compactTouchUiMedia.matches
+  const baseFittedSceneScale = compactTouchUiMedia.matches
     ? squareFitScale + (rectangularFitScale - squareFitScale) * .5
     : squareFitScale;
+  const fittedSceneScale = baseFittedSceneScale * (compactPopupLayoutMedia.matches ? .93 : 1);
   camera.scale = Math.min(30, Math.max(.08, fittedSceneScale / viewport.fitScale));
   fittedOverviewCameraScale = camera.scale;
   const appliedSceneScale = viewport.fitScale * camera.scale;
@@ -427,6 +448,40 @@ function compactBoardFocusPoint() {
   };
 }
 
+function compactProfilePopupTargetCorrection() {
+  const profilePopup = document.querySelector(".profile-popup.is-open:not(.popup-outgoing)");
+  const source = profilesById.get(selectedProfileId);
+  if (!profilePopup || !source || !teamState(source.team).placed) return { dx: 0, dy: 0 };
+  const position = profileWorldPosition(source.team, source.profile);
+  const scale = viewport.fitScale * targetCamera.scale;
+  const radius = profileLayoutConfig.profileDiameter / 2 * scale;
+  const x = viewport.sceneLeft + targetCamera.x + position.x * scale;
+  const y = viewport.sceneTop + targetCamera.y + position.y * scale;
+  const placement = profilePopup.dataset.placement ?? "top-left";
+  const anchorX = x + (placement.endsWith("right") ? radius : -radius);
+  const anchorY = y + (placement.startsWith("bottom") ? radius : -radius);
+  const rectangle = {
+    left: placement.endsWith("left") ? anchorX - profilePopup.offsetWidth : anchorX,
+    right: placement.endsWith("left") ? anchorX : anchorX + profilePopup.offsetWidth,
+    top: placement.startsWith("top") ? anchorY - profilePopup.offsetHeight : anchorY,
+    bottom: placement.startsWith("top") ? anchorY : anchorY + profilePopup.offsetHeight,
+  };
+  const margin = 8;
+  const searchRectangle = document.querySelector(".viewer-search.is-open .viewer-search-panel")?.getBoundingClientRect();
+  const teamPopup = document.querySelector(".team-popup.is-open:not(.popup-outgoing)");
+  const rightBoundary = (searchRectangle?.left ?? viewport.width) - margin;
+  const bottomBoundary = (teamPopup?.offsetTop ?? viewport.height) - margin;
+  const dx = rectangle.left < margin ? margin - rectangle.left
+    : rectangle.right > rightBoundary ? rightBoundary - rectangle.right : 0;
+  let dy = 0;
+  if (rectangle.top < margin) dy = margin - rectangle.top;
+  else if (rectangle.bottom > bottomBoundary) {
+    const alignBottom = bottomBoundary - rectangle.bottom;
+    dy = rectangle.top + alignBottom >= margin ? alignBottom : margin - rectangle.top;
+  }
+  return { dx, dy };
+}
+
 function focusTeam(teamId) {
   if (editActive || !compactPopupLayoutMedia.matches) return;
   const team = teamsById.get(teamId);
@@ -437,6 +492,9 @@ function focusTeam(teamId) {
   const scale = viewport.fitScale * targetCamera.scale;
   targetCamera.x = focus.x - viewport.sceneLeft - state.x * scale;
   targetCamera.y = focus.y - viewport.sceneTop - state.y * scale;
+  const correction = compactProfilePopupTargetCorrection();
+  targetCamera.x += correction.dx;
+  targetCamera.y += correction.dy;
   cameraEase = .105;
   requestDraw();
 }

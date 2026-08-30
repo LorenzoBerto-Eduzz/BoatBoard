@@ -249,10 +249,6 @@ function renderPerson(personId) {
     contentValue.textContent = displayedValue;
     block.setAttribute("aria-label", `Copy ${labelText}: ${displayedValue}`);
     block.addEventListener("click", () => {
-      block.classList.remove("is-pressing");
-      void block.offsetWidth;
-      block.classList.add("is-pressing");
-      setTimeout(() => block.classList.remove("is-pressing"), 150);
       copyContactValue(displayedValue);
     });
     block.append(label, contentValue);
@@ -440,12 +436,12 @@ if (popup) {
     placementLocked = false;
     dispatchEvent(new CustomEvent("boatboard:refresh-popup-positions"));
   });
-  addEventListener("boatboard:reanchor-profile-top-left", () => {
+  addEventListener("boatboard:reanchor-profile-top-left", (event) => {
     if (!compactPopupLayoutMedia.matches || (!pinnedPersonId && !previewPersonId)) return;
     placement = "top-left";
     placementLocked = true;
     popup.dataset.placement = placement;
-    ensureVisibleOnPosition = true;
+    ensureVisibleOnPosition = event.detail?.precomputedFocus !== true;
     dispatchEvent(new CustomEvent("boatboard:refresh-popup-positions"));
   });
 
