@@ -12,6 +12,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Export-LocalRelease.
 
 - Inputs: current `project/` source excluding `project/private_instance/`, `scripts/boatboard_server.py`, `requirements.txt`, `requirements-build.txt`, and tracked files under `release/`.
 - Output: ignored `exports/BoatBoard-local/`; an existing folder at that exact path is replaced.
+- Presentation: the reserved inactive header control remains in development source but is removed from both exported HTML pages until its functionality is defined.
 - Prerequisites: JavaScript syntax checks, Python compilation, `git diff --check`, and a successful isolated empty-instance test.
 - Build bootstrap: when missing, the export script creates ignored `build/boatboard-packaging-venv/` and installs the pinned build requirements. A development machine needs Python 3.11+ and network access for this first bootstrap; `-PythonPath` can select a specific interpreter.
 - Runtime: PyInstaller bundles Python, the server, and `openpyxl` into `BoatBoard.exe`; the exported preview requires no separate Python installation or terminal.

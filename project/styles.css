@@ -419,7 +419,7 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
   .viewer-search {
     align-items: center;
     display: flex;
-    gap: 1.05rem;
+    gap: .9rem;
     height: 38px;
     justify-content: flex-end;
     left: calc(50% + .45rem);
@@ -685,7 +685,7 @@ body { margin: 0; min-width: 320px; overflow: hidden; }
 
 /* Wide desktop layout. */
 @media (min-width: 901px) {
-  .viewer-search { align-items: flex-start; display: flex; gap: .6rem; }
+  .viewer-search { align-items: flex-start; display: flex; gap: .68rem; }
   .viewer-search-toggle { order: 0; }
   .compact-header-placeholder {
     border: 1px solid transparent;

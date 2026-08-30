@@ -74,6 +74,20 @@ Get-ChildItem -LiteralPath (Join-Path $root "project") -Force |
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $resolvedOutput "project") -Recurse -Force
     }
 
+# Keep the reserved future control in the development source without presenting
+# an inactive button to local-preview users.
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+foreach ($pageName in @("index.html", "editor.html")) {
+    $pagePath = Join-Path $resolvedOutput "project\$pageName"
+    $pageContent = [IO.File]::ReadAllText($pagePath)
+    $pageContent = [Text.RegularExpressions.Regex]::Replace(
+        $pageContent,
+        '(?m)^\s*<button class="compact-header-placeholder compact-header-future"[^>]*></button>\r?\n',
+        ''
+    )
+    [IO.File]::WriteAllText($pagePath, $pageContent, $utf8WithoutBom)
+}
+
 Copy-Item -LiteralPath (Join-Path $buildDist "BoatBoard.exe") -Destination (Join-Path $resolvedOutput "BoatBoard.exe")
 Copy-Item -LiteralPath (Join-Path $root "release\README.md") -Destination (Join-Path $resolvedOutput "README.md")
 Copy-Item -LiteralPath (Join-Path $root "release\BoatBoard Editor.cmd") -Destination (Join-Path $resolvedOutput "BoatBoard Editor.cmd")
