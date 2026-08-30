@@ -16,6 +16,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\Export-LocalRelease.
 - Prerequisites: JavaScript syntax checks, Python compilation, `git diff --check`, and a successful isolated empty-instance test.
 - Build bootstrap: when missing, the export script creates ignored `build/boatboard-packaging-venv/` and installs the pinned build requirements. A development machine needs Python 3.11+ and network access for this first bootstrap; `-PythonPath` can select a specific interpreter.
 - Runtime: PyInstaller bundles Python, the server, and `openpyxl` into `BoatBoard.exe`; the exported preview requires no separate Python installation or terminal.
+- Portability: stop the server before moving or copying the complete preview folder. Launching `BoatBoard.exe` from its new location serves that folder's own `project/private_instance/` and opens the localhost viewer automatically.
+- Network scope: normal launch binds to `127.0.0.1` for laptop-only access. Owner-authorized real-phone testing requires an explicit `BOATBOARD_HOST` binding to the laptop's current specific LAN address; the phone uses that LAN address and selected port on the same Wi-Fi. This setting is not persisted, and the address can change with the network.
 - Versioning: this preview is intentionally unversioned. Only the owner can authorize a future version or public release.
 - Secrets/signing/publishing: none. The command does not upload, sign, zip, deploy, or publish anything.
 - Privacy: the export must not contain `project/private_instance/`, credentials, real records, or real profile images.

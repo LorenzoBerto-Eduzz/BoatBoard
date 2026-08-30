@@ -171,7 +171,7 @@ async function copyContactValue(value) {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(value);
-      return;
+      return true;
     }
   } catch {
     // Local-network HTTP pages may not receive the secure-context Clipboard API.
@@ -183,8 +183,9 @@ async function copyContactValue(value) {
   document.body.append(helper);
   helper.select();
   helper.setSelectionRange(0, helper.value.length);
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   helper.remove();
+  return copied;
 }
 
 function sizeDescription(element, defaultLines) {
@@ -243,15 +244,36 @@ function renderPerson(personId) {
     const label = document.createElement("small");
     label.textContent = labelText;
     const contentValue = document.createElement("div");
+    contentValue.className = "profile-popup-detail-value";
+    const valueText = document.createElement("span");
     const fallback = labelText === "WhatsApp" ? "+55 (00) 00000-0000"
       : labelText === "Email" ? "colleague@example.com" : "@example-user";
     const displayedValue = value || fallback;
-    contentValue.textContent = displayedValue;
-    block.setAttribute("aria-label", `Copy ${labelText}: ${displayedValue}`);
-    block.addEventListener("click", () => {
-      copyContactValue(displayedValue);
-    });
+    valueText.textContent = displayedValue;
+    const copiedIndicator = document.createElement("span");
+    copiedIndicator.className = "profile-popup-copy-indicator";
+    copiedIndicator.setAttribute("aria-hidden", "true");
+    copiedIndicator.innerHTML = '<svg viewBox="0 0 20 20"><path d="m4.5 10.25 3.35 3.35 7.65-7.65" /></svg>';
+    contentValue.append(valueText, copiedIndicator);
     block.append(label, contentValue);
+    block.setAttribute("aria-label", `Copy ${labelText}: ${displayedValue}`);
+    let copiedTimer = 0;
+    block.addEventListener("click", async () => {
+      if (!await copyContactValue(displayedValue)) return;
+      clearTimeout(copiedTimer);
+      const indicatorSize = copiedIndicator.offsetWidth || 24;
+      const textRange = document.createRange();
+      textRange.selectNodeContents(valueText);
+      const textRectangle = textRange.getBoundingClientRect();
+      const valueRectangle = contentValue.getBoundingClientRect();
+      const renderedTextWidth = textRectangle.width;
+      textRange.detach();
+      const availableLeft = Math.max(0, contentValue.clientWidth - indicatorSize);
+      contentValue.style.setProperty("--copy-indicator-left", `${Math.min(renderedTextWidth + 5, availableLeft)}px`);
+      contentValue.style.setProperty("--copy-indicator-top", `${textRectangle.top - valueRectangle.top + textRectangle.height / 2}px`);
+      copiedIndicator.classList.add("is-visible");
+      copiedTimer = setTimeout(() => copiedIndicator.classList.remove("is-visible"), 2000);
+    });
     return block;
   };
 
